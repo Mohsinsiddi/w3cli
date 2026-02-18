@@ -230,6 +230,9 @@ func FetchContractNames(apiURL string, addresses []string, apiKey string) map[st
 				"%s?module=contract&action=getsourcecode&address=%s",
 				apiURL, addr,
 			)
+			if apiKey != "" {
+				url += "&apikey=" + apiKey
+			}
 			resp, err := client.Get(url)
 			if err != nil {
 				return
