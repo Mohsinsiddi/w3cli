@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var txNetwork string
+var (
+	txNetwork string
+	txTestnet bool
+)
 
 var txCmd = &cobra.Command{
 	Use:   "tx <hash>",
@@ -21,6 +24,11 @@ var txCmd = &cobra.Command{
 			chainName = cfg.DefaultNetwork
 		}
 
+		networkMode := cfg.NetworkMode
+		if txTestnet {
+			networkMode = "testnet"
+		}
+
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
@@ -30,7 +38,7 @@ var txCmd = &cobra.Command{
 		spin := ui.NewSpinner("Fetching transaction...")
 		spin.Start()
 
-		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
+		rpcURL, err := pickBestRPC(c, networkMode)
 		if err != nil {
 			spin.Stop()
 			return err
@@ -43,7 +51,7 @@ var txCmd = &cobra.Command{
 			return err
 		}
 
-		explorer := c.Explorer(cfg.NetworkMode)
+		explorer := c.Explorer(networkMode)
 
 		fmt.Println(ui.KeyValueBlock(
 			"Transaction Details",
@@ -64,4 +72,5 @@ var txCmd = &cobra.Command{
 
 func init() {
 	txCmd.Flags().StringVar(&txNetwork, "network", "", "chain (default: config)")
+	txCmd.Flags().BoolVar(&txTestnet, "testnet", false, "query the testnet instead of mainnet")
 }

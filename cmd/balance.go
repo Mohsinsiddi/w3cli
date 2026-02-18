@@ -17,6 +17,7 @@ var (
 	balanceNetwork string
 	balanceToken   string
 	balanceLive    bool
+	balanceTestnet bool
 )
 
 var balanceCmd = &cobra.Command{
@@ -28,21 +29,26 @@ var balanceCmd = &cobra.Command{
 		if len(args) == 1 && balanceWallet == "" {
 			balanceWallet = args[0]
 		}
-		// Resolve wallet and network.
+
+		networkMode := cfg.NetworkMode
+		if balanceTestnet {
+			networkMode = "testnet"
+		}
+
 		walletAddr, chainName, err := resolveWalletAndChain(balanceWallet, balanceNetwork)
 		if err != nil {
 			return err
 		}
 
 		if balanceLive {
-			return runLiveDashboard(walletAddr, chainName)
+			return runLiveDashboard(walletAddr, chainName, networkMode)
 		}
 
-		return fetchAndPrintBalance(walletAddr, chainName)
+		return fetchAndPrintBalance(walletAddr, chainName, networkMode)
 	},
 }
 
-func fetchAndPrintBalance(address, chainName string) error {
+func fetchAndPrintBalance(address, chainName, networkMode string) error {
 	reg := chain.NewRegistry()
 	c, err := reg.GetByName(chainName)
 	if err != nil {
@@ -52,8 +58,7 @@ func fetchAndPrintBalance(address, chainName string) error {
 	spin := ui.NewSpinner(fmt.Sprintf("Fetching balance on %s...", ui.ChainName(chainName)))
 	spin.Start()
 
-	// Pick best RPC.
-	rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
+	rpcURL, err := pickBestRPC(c, networkMode)
 	if err != nil {
 		spin.Stop()
 		return err
@@ -62,9 +67,8 @@ func fetchAndPrintBalance(address, chainName string) error {
 	var priceFetcher = price.NewFetcher(cfg.PriceCurrency)
 
 	if balanceToken != "" {
-		// ERC-20 token balance.
 		client := chain.NewEVMClient(rpcURL)
-		bal, err := client.GetTokenBalance(balanceToken, address, 18) // TODO: fetch decimals
+		bal, err := client.GetTokenBalance(balanceToken, address, 18)
 		spin.Stop()
 		if err != nil {
 			return err
@@ -98,7 +102,7 @@ func fetchAndPrintBalance(address, chainName string) error {
 			fmt.Sprintf("Balance on %s", c.DisplayName),
 			[][2]string{
 				{"Address", ui.Addr(address)},
-				{"Network", c.DisplayName + " (" + cfg.NetworkMode + ")"},
+				{"Network", c.DisplayName + " (" + networkMode + ")"},
 				{"Balance", bal.ETH + " " + c.NativeCurrency},
 				{"USD Value", usdValue},
 			},
@@ -138,12 +142,12 @@ func fetchAndPrintBalance(address, chainName string) error {
 	return nil
 }
 
-func runLiveDashboard(address, chainName string) error {
+func runLiveDashboard(address, chainName, networkMode string) error {
 	reg := chain.NewRegistry()
 	c, _ := reg.GetByName(chainName)
 
 	fetcher := func() ([]ui.BalanceEntry, error) {
-		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
+		rpcURL, err := pickBestRPC(c, networkMode)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +195,6 @@ func pickBestRPC(c *chain.Chain, mode string) (string, error) {
 }
 
 // resolveWalletAndChain returns the effective wallet address and chain name.
-// walletFlag may be a wallet name (looked up in config) or a raw hex address.
 func resolveWalletAndChain(walletFlag, networkFlag string) (string, string, error) {
 	chainName := networkFlag
 	if chainName == "" {
@@ -201,7 +204,6 @@ func resolveWalletAndChain(walletFlag, networkFlag string) (string, string, erro
 	mgr := newWalletManager()
 
 	if walletFlag == "" {
-		// No flag — use default wallet.
 		w := mgr.Default()
 		if w == nil {
 			return "", "", fmt.Errorf("no wallet specified — use --wallet or set a default with `w3cli wallet use <name>`")
@@ -209,12 +211,10 @@ func resolveWalletAndChain(walletFlag, networkFlag string) (string, string, erro
 		return w.Address, chainName, nil
 	}
 
-	// If it starts with 0x and is long enough, treat as raw address.
 	if len(walletFlag) >= 40 && (walletFlag[:2] == "0x" || walletFlag[:2] == "0X") {
 		return walletFlag, chainName, nil
 	}
 
-	// Otherwise treat it as a wallet name.
 	w, err := mgr.Get(walletFlag)
 	if err != nil {
 		return "", "", fmt.Errorf("wallet %q not found — run `w3cli wallet list` to see available wallets", walletFlag)
@@ -233,4 +233,5 @@ func init() {
 	balanceCmd.Flags().StringVar(&balanceNetwork, "network", "", "chain to query (default: config)")
 	balanceCmd.Flags().StringVar(&balanceToken, "token", "", "ERC-20 token contract address")
 	balanceCmd.Flags().BoolVar(&balanceLive, "live", false, "live refresh mode")
+	balanceCmd.Flags().BoolVar(&balanceTestnet, "testnet", false, "query the testnet instead of mainnet")
 }
