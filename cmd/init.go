@@ -50,7 +50,13 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Println(ui.Success("w3cli configured! Run `w3cli --help` to explore commands."))
+		fmt.Println(ui.Success("w3cli configured!"))
+		fmt.Println()
+		fmt.Println(ui.Hint("Quick start:"))
+		fmt.Println(ui.Meta("  w3cli balance              Check your wallet balance"))
+		fmt.Println(ui.Meta("  w3cli txs --last 5         View recent transactions"))
+		fmt.Println(ui.Meta("  w3cli network list         Browse 26 supported chains"))
+		fmt.Println(ui.Meta("  w3cli --help               Explore all commands"))
 		return nil
 	},
 }

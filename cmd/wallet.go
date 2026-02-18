@@ -31,9 +31,10 @@ var walletAddCmd = &cobra.Command{
 			}
 			w, _ := mgr.Get(name)
 			fmt.Println(ui.Success(fmt.Sprintf("Signing wallet %q added: %s", name, ui.Addr(w.Address))))
+			fmt.Println(ui.Hint(fmt.Sprintf("Set as default with: w3cli wallet use %s", name)))
 		} else {
 			if len(args) < 2 {
-				return fmt.Errorf("address required for watch-only wallet (or use --key for signing wallet)")
+				return fmt.Errorf("address required for watch-only wallet\n  Usage: w3cli wallet add <name> <address>\n  Or for signing: w3cli wallet add <name> --key <private-key>")
 			}
 			address := args[1]
 			if err := mgr.Add(name, &wallet.Wallet{
@@ -44,6 +45,7 @@ var walletAddCmd = &cobra.Command{
 				return err
 			}
 			fmt.Println(ui.Success(fmt.Sprintf("Watch-only wallet %q added: %s", name, ui.Addr(address))))
+			fmt.Println(ui.Hint(fmt.Sprintf("Set as default with: w3cli wallet use %s", name)))
 		}
 		return nil
 	},
@@ -57,7 +59,8 @@ var walletListCmd = &cobra.Command{
 		wallets := mgr.List()
 
 		if len(wallets) == 0 {
-			fmt.Println(ui.Meta("No wallets configured. Run `w3cli wallet add <name> <address>`."))
+			fmt.Println(ui.Info("No wallets configured yet."))
+			fmt.Println(ui.Hint("Add one with: w3cli wallet add myWallet 0xYourAddress"))
 			return nil
 		}
 
@@ -81,6 +84,7 @@ var walletListCmd = &cobra.Command{
 			})
 		}
 		fmt.Println(t.Render())
+		fmt.Println(ui.Meta(fmt.Sprintf("%d wallet(s) configured", len(wallets))))
 		return nil
 	},
 }
@@ -117,6 +121,7 @@ var walletUseCmd = &cobra.Command{
 		cfg.DefaultWallet = name
 		cfg.Save() //nolint:errcheck
 		fmt.Println(ui.Success(fmt.Sprintf("Default wallet set to %q.", name)))
+		fmt.Println(ui.Hint("This wallet will be used for all commands when --wallet is not specified."))
 		return nil
 	},
 }

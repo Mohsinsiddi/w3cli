@@ -47,9 +47,8 @@ var contractAddCmd = &cobra.Command{
 				return err
 			}
 		} else if contractFetchABI {
-			fmt.Println(ui.Meta("Fetching ABI from explorer..."))
-			// TODO: use explorer API URL from chain registry.
-			return fmt.Errorf("--fetch requires an explorer API key — use --abi to provide a local ABI file")
+			fmt.Println(ui.Info("Fetching ABI from explorer..."))
+			return fmt.Errorf("--fetch requires an explorer API key\n  Set one with: w3cli config set-explorer-key <key>\n  Or provide a local ABI file: --abi <file.json>")
 		}
 
 		reg.Add(&contract.Entry{
@@ -64,6 +63,7 @@ var contractAddCmd = &cobra.Command{
 		}
 
 		fmt.Println(ui.Success(fmt.Sprintf("Contract %q registered on %s at %s", name, network, ui.Addr(address))))
+		fmt.Println(ui.Hint("Explore it with: w3cli contract studio " + name))
 		return nil
 	},
 }
@@ -79,7 +79,8 @@ var contractListCmd = &cobra.Command{
 
 		entries := reg.All()
 		if len(entries) == 0 {
-			fmt.Println(ui.Meta("No contracts registered. Use `w3cli contract add`."))
+			fmt.Println(ui.Info("No contracts registered yet."))
+			fmt.Println(ui.Hint("Add one with: w3cli contract add <name> <address> --abi <file.json>"))
 			return nil
 		}
 
@@ -100,6 +101,7 @@ var contractListCmd = &cobra.Command{
 			})
 		}
 		fmt.Println(t.Render())
+		fmt.Println(ui.Meta(fmt.Sprintf("%d contract(s) registered", len(entries))))
 		return nil
 	},
 }
@@ -131,7 +133,7 @@ var contractCallCmd = &cobra.Command{
 		chainReg := newChainRegistry()
 		c, err := chainReg.GetByName(network)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", network)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", network)
 		}
 
 		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
@@ -139,7 +141,7 @@ var contractCallCmd = &cobra.Command{
 			return err
 		}
 
-		spin := ui.NewSpinner(fmt.Sprintf("Calling %s.%s()...", name, funcName))
+		spin := ui.NewSpinner(fmt.Sprintf("Calling %s.%s() on %s (%s)...", name, funcName, network, cfg.NetworkMode))
 		spin.Start()
 
 		caller := contract.NewCallerFromEntries(rpcURL, entry.ABI)
@@ -149,7 +151,7 @@ var contractCallCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("\n%s  %s\n\n", ui.StyleTitle.Render(name+"."+funcName+"()"), ui.Meta("→ result"))
+		fmt.Printf("\n%s  %s\n\n", ui.StyleTitle.Render(fmt.Sprintf("%s.%s() · %s (%s)", name, funcName, network, cfg.NetworkMode)), ui.Meta("→ result"))
 		for i, r := range results {
 			fmt.Printf("  [%d]  %s\n", i, ui.Val(r))
 		}
@@ -164,9 +166,10 @@ var contractSyncCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		all, _ := cmd.Flags().GetBool("all")
 		if !all && len(args) == 0 {
-			return fmt.Errorf("provide a contract name or --all")
+			return fmt.Errorf("provide a contract name or --all\n  Example: w3cli contract sync myToken\n  Or sync all: w3cli contract sync --all")
 		}
-		fmt.Println(ui.Meta("ABI sync via explorer requires an API key — use `w3cli sync run` for manifest sync."))
+		fmt.Println(ui.Info("ABI sync via explorer requires an API key."))
+		fmt.Println(ui.Hint("Use `w3cli sync run` for manifest-based sync, or `w3cli config set-explorer-key <key>` to enable explorer sync."))
 		return nil
 	},
 }
@@ -192,7 +195,7 @@ var contractStudioCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("%s\n\n", ui.StyleTitle.Render(fmt.Sprintf("Contract Studio: %s on %s", name, network)))
+		fmt.Printf("%s\n\n", ui.StyleTitle.Render(fmt.Sprintf("Contract Studio: %s on %s (%s)", name, network, cfg.NetworkMode)))
 		fmt.Printf("  %s %s\n\n", ui.Meta("Address:"), ui.Addr(entry.Address))
 
 		// Show read functions.
@@ -220,7 +223,7 @@ var contractStudioCmd = &cobra.Command{
 		}
 
 		fmt.Println()
-		fmt.Println(ui.Meta("Use `w3cli contract call <name> <function> [args...]` to call a function."))
+		fmt.Println(ui.Hint("Use `w3cli contract call <name> <function> [args...]` to call a function."))
 		return nil
 	},
 }

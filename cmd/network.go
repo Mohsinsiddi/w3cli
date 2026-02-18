@@ -45,7 +45,7 @@ var networkListCmd = &cobra.Command{
 		}
 
 		fmt.Println(t.Render())
-		fmt.Printf("%s\n", ui.Meta(fmt.Sprintf("%d chains total", len(reg.All()))))
+		fmt.Println(ui.Info(fmt.Sprintf("%d chains supported · mode: %s", len(reg.All()), cfg.NetworkMode)))
 		return nil
 	},
 }
@@ -70,6 +70,7 @@ Examples:
 			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
+		prevNetwork := cfg.DefaultNetwork
 		cfg.DefaultNetwork = chainName
 
 		if err := cfg.Save(); err != nil {
@@ -77,7 +78,11 @@ Examples:
 		}
 
 		mode := cfg.NetworkMode
-		fmt.Println(ui.Success(fmt.Sprintf("Default network set to %s (%s)", ui.ChainName(chainName), mode)))
+		if prevNetwork != "" && prevNetwork != chainName {
+			fmt.Println(ui.Success(fmt.Sprintf("Default network changed: %s → %s (%s)", ui.ChainName(prevNetwork), ui.ChainName(chainName), mode)))
+		} else {
+			fmt.Println(ui.Success(fmt.Sprintf("Default network set to %s (%s)", ui.ChainName(chainName), mode)))
+		}
 		return nil
 	},
 }

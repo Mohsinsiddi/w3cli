@@ -168,8 +168,8 @@ func TestConfigList(t *testing.T) {
 	dir := t.TempDir()
 	out, err := runCLI(t, dir, "config", "list")
 	require.NoError(t, err)
-	assert.Contains(t, out, "default_network")
-	assert.Contains(t, out, "rpc_algorithm")
+	assert.Contains(t, out, "Default Network")
+	assert.Contains(t, out, "RPC Algorithm")
 }
 
 func TestConfigSetDefaultNetwork(t *testing.T) {
@@ -221,7 +221,8 @@ func TestGlobalTestnetFlagInherited(t *testing.T) {
 	out, err := runCLI(t, dir, "config", "list", "--testnet")
 	require.NoError(t, err)
 	// Config list should show the runtime-overridden mode.
-	assert.Contains(t, out, "network_mode")
+	assert.Contains(t, out, "Network Mode")
+	assert.Contains(t, out, "testnet")
 }
 
 func TestGlobalMainnetFlagInherited(t *testing.T) {
@@ -231,7 +232,8 @@ func TestGlobalMainnetFlagInherited(t *testing.T) {
 	// --mainnet flag should override at runtime.
 	out, err := runCLI(t, dir, "config", "list", "--mainnet")
 	require.NoError(t, err)
-	assert.Contains(t, out, "network_mode")
+	assert.Contains(t, out, "Network Mode")
+	assert.Contains(t, out, "mainnet")
 }
 
 func TestUnknownCommandShowsError(t *testing.T) {
@@ -276,4 +278,209 @@ func TestWatchHelpShowsTestnetFlag(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "--testnet")
 	assert.Contains(t, out, "--mainnet")
+}
+
+// ---------------------------------------------------------------------------
+// Unknown chain errors should include actionable hints
+// ---------------------------------------------------------------------------
+
+func TestUnknownChainNetworkUseShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "network", "use", "fakechain99")
+	assert.Error(t, err)
+	assert.Contains(t, out, "network list", "unknown chain error should hint at network list")
+}
+
+func TestUnknownChainRPCAddShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "add", "fakechain99", "https://rpc.example.com")
+	assert.Error(t, err)
+	assert.Contains(t, out, "network list", "unknown chain error should hint at network list")
+}
+
+func TestUnknownChainRPCBenchmarkShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "benchmark", "fakechain99")
+	assert.Error(t, err)
+	assert.Contains(t, out, "network list", "unknown chain error should hint at network list")
+}
+
+func TestUnknownChainRPCListShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "list", "fakechain99")
+	assert.Error(t, err)
+	assert.Contains(t, out, "network list", "unknown chain error should hint at network list")
+}
+
+// ---------------------------------------------------------------------------
+// Success messages should include follow-up hints
+// ---------------------------------------------------------------------------
+
+func TestWalletAddShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "wallet", "add", "mywallet", "0x1234567890abcdef1234567890abcdef12345678")
+	require.NoError(t, err)
+	assert.Contains(t, out, "wallet use", "wallet add should hint about setting default")
+}
+
+func TestWalletUseShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	runCLI(t, dir, "wallet", "add", "w1", "0x1234567890abcdef1234567890abcdef12345678") //nolint:errcheck
+	out, err := runCLI(t, dir, "wallet", "use", "w1")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--wallet", "wallet use should hint about --wallet override")
+}
+
+func TestRPCAddShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "add", "base", "https://custom.rpc.test")
+	require.NoError(t, err)
+	assert.Contains(t, out, "rpc benchmark", "rpc add should hint about benchmarking")
+}
+
+func TestRPCRemoveShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	runCLI(t, dir, "rpc", "add", "base", "https://custom.rpc.test") //nolint:errcheck
+	out, err := runCLI(t, dir, "rpc", "remove", "base", "https://custom.rpc.test")
+	require.NoError(t, err)
+	assert.Contains(t, out, "rpc list", "rpc remove should hint about listing remaining endpoints")
+}
+
+func TestRPCAlgorithmSetShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "algorithm", "set", "failover")
+	require.NoError(t, err)
+	assert.Contains(t, out, "rpc benchmark", "rpc algorithm set should hint about benchmarking")
+}
+
+func TestConfigSetDefaultWalletShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-default-wallet", "mywallet")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--wallet", "set-default-wallet should hint about --wallet override")
+}
+
+func TestConfigSetDefaultNetworkShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-default-network", "polygon")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--network", "set-default-network should hint about --network override")
+}
+
+func TestConfigSetRPCShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-rpc", "base", "https://rpc.example.com")
+	require.NoError(t, err)
+	assert.Contains(t, out, "rpc benchmark", "set-rpc should hint about benchmarking")
+}
+
+func TestConfigSetNetworkModeShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-network-mode", "testnet")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--testnet", "set-network-mode should hint about per-call override")
+}
+
+func TestConfigSetExplorerKeyShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-explorer-key", "TESTKEY123")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--chain", "set-explorer-key should hint about per-chain override")
+}
+
+func TestConfigSetExplorerKeyPerChainShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "set-explorer-key", "--chain", "base", "TESTKEY123")
+	require.NoError(t, err)
+	assert.Contains(t, out, "priority", "per-chain explorer key should hint about priority")
+}
+
+func TestSyncSetSourceShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "sync", "set-source", "https://example.com/deployments.json")
+	require.NoError(t, err)
+	assert.Contains(t, out, "sync run", "sync set-source should hint about running sync")
+}
+
+func TestNetworkUseShowsHintOnChange(t *testing.T) {
+	dir := t.TempDir()
+	// Set initial network.
+	runCLI(t, dir, "network", "use", "base")       //nolint:errcheck
+	out, err := runCLI(t, dir, "network", "use", "polygon")
+	require.NoError(t, err)
+	// Should show previous → new when changing.
+	assert.Contains(t, strings.ToLower(out), "base", "should show previous network")
+	assert.Contains(t, strings.ToLower(out), "polygon", "should show new network")
+}
+
+// ---------------------------------------------------------------------------
+// Empty-state messages should show info + hint
+// ---------------------------------------------------------------------------
+
+func TestWalletListEmptyShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "wallet", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "No wallets", "empty wallet list should show info message")
+	assert.Contains(t, out, "wallet add", "empty wallet list should hint about adding")
+}
+
+func TestContractListEmptyShowsHint(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "contract", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "No contracts", "empty contract list should show info message")
+	assert.Contains(t, out, "contract add", "empty contract list should hint about adding")
+}
+
+func TestWalletListShowsCount(t *testing.T) {
+	dir := t.TempDir()
+	runCLI(t, dir, "wallet", "add", "w1", "0x1234567890abcdef1234567890abcdef12345678") //nolint:errcheck
+	runCLI(t, dir, "wallet", "add", "w2", "0xabcdef1234567890abcdef1234567890abcdef12") //nolint:errcheck
+	out, err := runCLI(t, dir, "wallet", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "2 wallet(s)", "wallet list should show count footer")
+}
+
+func TestContractListShowsCount(t *testing.T) {
+	dir := t.TempDir()
+	// Register a contract with a minimal ABI.
+	_, err := runCLI(t, dir, "contract", "add", "mytoken", "0x1234567890abcdef1234567890abcdef12345678")
+	require.NoError(t, err)
+	out, err := runCLI(t, dir, "contract", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "1 contract(s)", "contract list should show count footer")
+}
+
+func TestRPCListShowsEndpointCount(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "rpc", "list", "base")
+	require.NoError(t, err)
+	assert.Contains(t, out, "endpoint(s) total", "rpc list should show endpoint count")
+}
+
+// ---------------------------------------------------------------------------
+// Config list formatted output
+// ---------------------------------------------------------------------------
+
+func TestConfigListShowsAllFields(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Default Network")
+	assert.Contains(t, out, "Network Mode")
+	assert.Contains(t, out, "Default Wallet")
+	assert.Contains(t, out, "RPC Algorithm")
+	assert.Contains(t, out, "Explorer API Key")
+	assert.Contains(t, out, "Config Directory")
+}
+
+func TestConfigListVerboseShowsJSON(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "config", "list", "--verbose")
+	require.NoError(t, err)
+	// Verbose mode should include the formatted table AND raw JSON.
+	assert.Contains(t, out, "Default Network", "verbose should still show table")
+	assert.Contains(t, out, "Raw JSON", "verbose should show raw JSON header")
+	assert.Contains(t, out, "default_network", "verbose should include JSON field names")
 }

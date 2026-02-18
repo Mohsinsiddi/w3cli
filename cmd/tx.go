@@ -35,10 +35,10 @@ Examples:
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
-		spin := ui.NewSpinner("Fetching transaction...")
+		spin := ui.NewSpinner(fmt.Sprintf("Fetching transaction on %s (%s)...", ui.ChainName(chainName), networkMode))
 		spin.Start()
 
 		rpcURL, err := pickBestRPC(c, networkMode)
@@ -57,13 +57,13 @@ Examples:
 		explorer := c.Explorer(networkMode)
 
 		fmt.Println(ui.KeyValueBlock(
-			"Transaction Details",
+			fmt.Sprintf("Transaction Details · %s (%s)", c.DisplayName, networkMode),
 			[][2]string{
 				{"Hash", ui.Addr(tx.Hash)},
 				{"From", ui.Addr(tx.From)},
 				{"To", ui.Addr(tx.To)},
 				{"Value", tx.ValueETH + " " + c.NativeCurrency},
-				{"Gas Used", fmt.Sprintf("%d", tx.Gas)},
+				{"Gas Limit", fmt.Sprintf("%d", tx.Gas)},
 				{"Block", fmt.Sprintf("%d", tx.BlockNum)},
 				{"Nonce", fmt.Sprintf("%d", tx.Nonce)},
 				{"Explorer", explorer + "/tx/" + tx.Hash},

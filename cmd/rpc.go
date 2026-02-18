@@ -24,7 +24,7 @@ var rpcAddCmd = &cobra.Command{
 		chainName, url := args[0], args[1]
 		reg := chain.NewRegistry()
 		if _, err := reg.GetByName(chainName); err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 		if err := cfg.AddRPC(chainName, url); err != nil {
 			return err
@@ -33,6 +33,7 @@ var rpcAddCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Added RPC for %s: %s", ui.ChainName(chainName), url)))
+		fmt.Println(ui.Hint("Custom RPCs take priority over built-in ones. Run `w3cli rpc benchmark " + chainName + "` to test."))
 		return nil
 	},
 }
@@ -50,6 +51,7 @@ var rpcRemoveCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Removed RPC for %s: %s", chainName, url)))
+		fmt.Println(ui.Hint("Run `w3cli rpc list " + chainName + "` to see remaining endpoints."))
 		return nil
 	},
 }
@@ -63,10 +65,10 @@ var rpcListCmd = &cobra.Command{
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
-		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("RPCs for %s", c.DisplayName)))
+		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("RPCs for %s (%s)", c.DisplayName, cfg.NetworkMode)))
 
 		fmt.Println(ui.StyleHeader.Render("Built-in RPCs:"))
 		for _, r := range c.MainnetRPCs {
@@ -83,6 +85,8 @@ var rpcListCmd = &cobra.Command{
 				fmt.Printf("  %s\n", r)
 			}
 		}
+		total := len(c.MainnetRPCs) + len(c.TestnetRPCs) + len(custom)
+		fmt.Println(ui.Meta(fmt.Sprintf("%d endpoint(s) total", total)))
 		return nil
 	},
 }
@@ -96,7 +100,7 @@ var rpcBenchmarkCmd = &cobra.Command{
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
 		rpcs := c.RPCs(cfg.NetworkMode)
@@ -104,7 +108,8 @@ var rpcBenchmarkCmd = &cobra.Command{
 			rpcs = append(custom, rpcs...)
 		}
 
-		fmt.Printf("%s\n\n", ui.StyleTitle.Render(fmt.Sprintf("Benchmarking %s RPCs...", c.DisplayName)))
+		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("Benchmarking %s RPCs (%s)...", c.DisplayName, cfg.NetworkMode)))
+		fmt.Println(ui.Meta(fmt.Sprintf("Testing %d endpoints · algorithm: %s\n", len(rpcs), cfg.RPCAlgorithm)))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -132,7 +137,14 @@ var rpcBenchmarkCmd = &cobra.Command{
 			t.AddRow(ui.Row{r.URL, latency, block, status})
 		}
 
+		healthy := 0
+		for _, r := range results {
+			if r.Err == nil {
+				healthy++
+			}
+		}
 		fmt.Println(t.Render())
+		fmt.Println(ui.Info(fmt.Sprintf("%d/%d endpoints healthy", healthy, len(results))))
 		return nil
 	},
 }
@@ -158,6 +170,7 @@ var rpcAlgorithmSetCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("RPC algorithm set to %q", algo)))
+		fmt.Println(ui.Hint("Run `w3cli rpc benchmark <chain>` to see how endpoints perform with this algorithm."))
 		return nil
 	},
 }

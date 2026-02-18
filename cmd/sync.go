@@ -31,6 +31,7 @@ var syncSetSourceCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Sync source set to: %s", url)))
+		fmt.Println(ui.Hint("Run `w3cli sync run` to fetch contracts from this source."))
 		return nil
 	},
 }
@@ -47,13 +48,13 @@ var syncRunCmd = &cobra.Command{
 		syncer := csync.New(cfg, reg)
 
 		if syncWatch {
-			fmt.Println(ui.Meta("Watching for changes every 30s. Press Ctrl+C to stop."))
+			fmt.Println(ui.Info("Watching for changes every 30s. Press Ctrl+C to stop."))
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			return syncer.Watch(ctx, 30*time.Second)
 		}
 
-		spin := ui.NewSpinner("Syncing contracts...")
+		spin := ui.NewSpinner("Syncing contracts from manifest...")
 		spin.Start()
 		err := syncer.Run(context.Background())
 		spin.Stop()
@@ -61,6 +62,7 @@ var syncRunCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success("Contracts synced successfully!"))
+		fmt.Println(ui.Hint("Run `w3cli contract list` to see synced contracts."))
 		return nil
 	},
 }

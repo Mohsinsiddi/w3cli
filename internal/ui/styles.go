@@ -7,9 +7,11 @@ var (
 	ColorSuccess   = lipgloss.Color("#00D26A") // green  — receive, success
 	ColorWarning   = lipgloss.Color("#FFB800") // yellow — send, warning
 	ColorError     = lipgloss.Color("#FF4444") // red    — error, danger
+	ColorInfo      = lipgloss.Color("#00B4D8") // cyan   — info, addresses, hashes
 	ColorAddress   = lipgloss.Color("#00B4D8") // cyan   — addresses, hashes
 	ColorValue     = lipgloss.Color("#FFFFFF") // white bold — ETH values
 	ColorMeta      = lipgloss.Color("#555555") // dim gray  — timestamps, metadata
+	ColorHint      = lipgloss.Color("#888888") // light gray — hints, tips
 	ColorBorder    = lipgloss.Color("#1E3A5F") // dark blue — UI chrome
 	ColorChain     = lipgloss.Color("#9B5DE5") // purple    — chain names
 	ColorHighlight = lipgloss.Color("#F15BB5") // pink      — selected rows
@@ -20,6 +22,8 @@ var (
 	StyleSuccess = lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true)
 	StyleWarning = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true)
 	StyleError   = lipgloss.NewStyle().Foreground(ColorError).Bold(true)
+	StyleInfo    = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	StyleHint    = lipgloss.NewStyle().Foreground(ColorHint).Italic(true)
 	StyleAddress = lipgloss.NewStyle().Foreground(ColorAddress)
 	StyleValue   = lipgloss.NewStyle().Foreground(ColorValue).Bold(true)
 	StyleMeta    = lipgloss.NewStyle().Foreground(ColorMeta)
@@ -81,6 +85,12 @@ func Val(v string) string { return StyleValue.Render(v) }
 
 // Meta formats metadata text.
 func Meta(m string) string { return StyleMeta.Render(m) }
+
+// Info formats an informational message.
+func Info(msg string) string { return StyleInfo.Render("ℹ " + msg) }
+
+// Hint formats a hint/tip message.
+func Hint(msg string) string { return StyleHint.Render("💡 " + msg) }
 
 // ChainName formats a chain name.
 func ChainName(c string) string { return StyleChain.Render(c) }

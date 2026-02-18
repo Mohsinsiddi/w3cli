@@ -38,10 +38,10 @@ Examples:
   w3cli send --to 0x... --value 100 --token 0xUSDC --gas fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
-			return fmt.Errorf("--to is required")
+			return fmt.Errorf("--to is required — specify the recipient address")
 		}
 		if sendValue == "" {
-			return fmt.Errorf("--value is required")
+			return fmt.Errorf("--value is required — specify the amount to send (e.g. --value 0.1)")
 		}
 
 		chainName := sendNetwork
@@ -58,17 +58,17 @@ Examples:
 		mgr := wallet.NewManager(wallet.WithStore(store))
 		w, err := mgr.Get(walletName)
 		if err != nil {
-			return fmt.Errorf("wallet %q not found", walletName)
+			return fmt.Errorf("wallet %q not found — run `w3cli wallet list` or set a default with `w3cli wallet use <name>`", walletName)
 		}
 		if w.Type != wallet.TypeSigning {
-			return fmt.Errorf("wallet %q is watch-only — add it with --key to sign transactions", walletName)
+			return fmt.Errorf("wallet %q is watch-only and cannot sign transactions\n  To add a signing wallet: w3cli wallet add <name> --key <private-key>", walletName)
 		}
 
 		// Resolve chain.
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
 		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
@@ -118,14 +118,15 @@ Examples:
 
 		// Preview screen.
 		usdCost := gasPrice.Uint64() * gasLimit
-		fmt.Println(ui.KeyValueBlock("Transaction Preview", [][2]string{
+		fmt.Println(ui.KeyValueBlock(fmt.Sprintf("Transaction Preview · %s (%s)", c.DisplayName, cfg.NetworkMode), [][2]string{
 			{"From", ui.Addr(w.Address)},
 			{"To", ui.Addr(sendTo)},
 			{"Value", sendValue + " " + c.NativeCurrency},
 			{"Gas Limit", fmt.Sprintf("%d", gasLimit)},
 			{"Gas Price", fmt.Sprintf("%d Gwei", toGwei(gasPrice))},
+			{"Gas Speed", sendGas},
 			{"Est. Fee", fmt.Sprintf("~%d Wei", usdCost)},
-			{"Network", c.DisplayName},
+			{"Network", fmt.Sprintf("%s (%s)", c.DisplayName, cfg.NetworkMode)},
 		}))
 
 		if !ui.Confirm("Broadcast this transaction?") {
@@ -133,7 +134,7 @@ Examples:
 			return nil
 		}
 
-		spin := ui.NewSpinner("Broadcasting transaction...")
+		spin := ui.NewSpinner(fmt.Sprintf("Broadcasting transaction on %s (%s)...", c.DisplayName, cfg.NetworkMode))
 		spin.Start()
 
 		toAddr := common.HexToAddress(sendTo)
@@ -153,7 +154,7 @@ Examples:
 			return err
 		}
 
-		spin = ui.NewSpinner("Sending...")
+		spin = ui.NewSpinner(fmt.Sprintf("Sending on %s...", c.DisplayName))
 		spin.Start()
 		hash, err := client.SendRawTransaction("0x" + hex.EncodeToString(raw))
 		spin.Stop()
@@ -162,9 +163,13 @@ Examples:
 		}
 
 		explorer := c.Explorer(cfg.NetworkMode)
-		fmt.Println(ui.Success("Transaction sent!"))
-		fmt.Println(ui.Addr("Hash: " + hash))
-		fmt.Println(ui.Meta(explorer + "/tx/" + hash))
+		fmt.Println()
+		fmt.Println(ui.KeyValueBlock("Transaction Sent ✓", [][2]string{
+			{"Hash", ui.Addr(hash)},
+			{"Network", fmt.Sprintf("%s (%s)", c.DisplayName, cfg.NetworkMode)},
+			{"Explorer", explorer + "/tx/" + hash},
+		}))
+		fmt.Println(ui.Hint("Track status with: w3cli tx " + hash + " --network " + chainName))
 		return nil
 	},
 }

@@ -56,10 +56,10 @@ func fetchAndPrintBalance(address, chainName, networkMode string) error {
 	reg := chain.NewRegistry()
 	c, err := reg.GetByName(chainName)
 	if err != nil {
-		return fmt.Errorf("unknown chain %q", chainName)
+		return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 	}
 
-	spin := ui.NewSpinner(fmt.Sprintf("Fetching balance on %s...", ui.ChainName(chainName)))
+	spin := ui.NewSpinner(fmt.Sprintf("Fetching balance on %s (%s)...", ui.ChainName(chainName), networkMode))
 	spin.Start()
 
 	rpcURL, err := pickBestRPC(c, networkMode)
@@ -120,12 +120,15 @@ func fetchAndPrintBalance(address, chainName, networkMode string) error {
 			return err
 		}
 		fmt.Println(ui.KeyValueBlock(
-			fmt.Sprintf("Balance on Solana"),
+			fmt.Sprintf("Balance on Solana (%s)", networkMode),
 			[][2]string{
 				{"Address", ui.Addr(address)},
+				{"Network", "Solana (" + networkMode + ")"},
 				{"Balance", bal.ETH + " SOL"},
+				{"USD Value", "—"},
 			},
 		))
+		fmt.Println(ui.Hint("USD pricing for Solana coming soon."))
 
 	case chain.ChainTypeSUI:
 		client := chain.NewSUIClient(rpcURL)
@@ -135,12 +138,15 @@ func fetchAndPrintBalance(address, chainName, networkMode string) error {
 			return err
 		}
 		fmt.Println(ui.KeyValueBlock(
-			"Balance on SUI",
+			fmt.Sprintf("Balance on SUI (%s)", networkMode),
 			[][2]string{
 				{"Address", ui.Addr(address)},
+				{"Network", "SUI (" + networkMode + ")"},
 				{"Balance", bal.ETH + " SUI"},
+				{"USD Value", "—"},
 			},
 		))
+		fmt.Println(ui.Hint("USD pricing for SUI coming soon."))
 	}
 
 	return nil
@@ -184,7 +190,7 @@ func runLiveDashboard(address, chainName, networkMode string) error {
 func pickBestRPC(c *chain.Chain, mode string) (string, error) {
 	rpcs := c.RPCs(mode)
 	if len(rpcs) == 0 {
-		return "", fmt.Errorf("no RPCs configured for %s (%s)", c.Name, mode)
+		return "", fmt.Errorf("no RPCs configured for %s (%s) — try adding one with `w3cli rpc add %s <url>`", c.Name, mode, c.Name)
 	}
 	// Merge custom RPCs.
 	if custom := cfg.GetRPCs(c.Name); len(custom) > 0 {
@@ -210,7 +216,7 @@ func resolveWalletAndChain(walletFlag, networkFlag string) (string, string, erro
 	if walletFlag == "" {
 		w := mgr.Default()
 		if w == nil {
-			return "", "", fmt.Errorf("no wallet specified — use --wallet or set a default with `w3cli wallet use <name>`")
+			return "", "", fmt.Errorf("no wallet specified — use --wallet <address> or set a default:\n  w3cli wallet add myWallet 0x...\n  w3cli wallet use myWallet")
 		}
 		return w.Address, chainName, nil
 	}
@@ -221,7 +227,7 @@ func resolveWalletAndChain(walletFlag, networkFlag string) (string, string, erro
 
 	w, err := mgr.Get(walletFlag)
 	if err != nil {
-		return "", "", fmt.Errorf("wallet %q not found — run `w3cli wallet list` to see available wallets", walletFlag)
+		return "", "", fmt.Errorf("wallet %q not found — run `w3cli wallet list` to see available wallets, or pass an address directly", walletFlag)
 	}
 	return w.Address, chainName, nil
 }

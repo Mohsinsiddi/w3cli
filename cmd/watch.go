@@ -37,11 +37,11 @@ Examples:
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
-		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("Watching %s on %s", ui.TruncateAddr(address), ui.ChainName(chainName))))
-		fmt.Println(ui.Meta("Press q to quit.\n"))
+		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("Watching %s on %s (%s)", ui.TruncateAddr(address), ui.ChainName(chainName), cfg.NetworkMode)))
+		fmt.Println(ui.Meta("Press q to quit. Balance refreshes automatically.\n"))
 
 		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
 		if err != nil {

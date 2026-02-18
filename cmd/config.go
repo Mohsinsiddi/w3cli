@@ -24,13 +24,43 @@ var configListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Show current configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		data, err := json.MarshalIndent(cfg, "", "  ")
-		if err != nil {
-			return err
+		network := cfg.DefaultNetwork
+		if network == "" {
+			network = "(not set)"
 		}
-		fmt.Printf("%s\n\n", ui.StyleTitle.Render("Current Configuration"))
-		fmt.Println(string(data))
-		fmt.Println(ui.Meta("Config directory: " + cfg.Dir()))
+		wallet := cfg.DefaultWallet
+		if wallet == "" {
+			wallet = "(not set)"
+		}
+		mode := cfg.NetworkMode
+		if mode == "" {
+			mode = "mainnet"
+		}
+		algo := cfg.RPCAlgorithm
+		if algo == "" {
+			algo = "fastest"
+		}
+		apiKeyStatus := "(not set)"
+		if cfg.ExplorerAPIKey != "" {
+			apiKeyStatus = "configured ✓"
+		}
+
+		fmt.Println(ui.KeyValueBlock("Current Configuration", [][2]string{
+			{"Default Network", network},
+			{"Network Mode", mode},
+			{"Default Wallet", wallet},
+			{"RPC Algorithm", algo},
+			{"Explorer API Key", apiKeyStatus},
+			{"Config Directory", cfg.Dir()},
+		}))
+
+		if verbose {
+			data, err := json.MarshalIndent(cfg, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\n%s\n%s\n", ui.Meta("Raw JSON:"), string(data))
+		}
 		return nil
 	},
 }
@@ -45,6 +75,7 @@ var configSetDefaultWalletCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Default wallet set to %q", args[0])))
+		fmt.Println(ui.Hint("This wallet will be used when --wallet is not specified."))
 		return nil
 	},
 }
@@ -59,6 +90,7 @@ var configSetDefaultNetworkCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Default network set to %q", args[0])))
+		fmt.Println(ui.Hint("This network will be used when --network is not specified."))
 		return nil
 	},
 }
@@ -77,6 +109,7 @@ var configSetRPCCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("RPC for %s set to %s", chainName, url)))
+		fmt.Println(ui.Hint("Run `w3cli rpc benchmark " + chainName + "` to test endpoint performance."))
 		return nil
 	},
 }
@@ -106,8 +139,10 @@ Examples:
 		}
 		if explorerKeyChain == "" {
 			fmt.Println(ui.Success("Global explorer API key saved."))
+			fmt.Println(ui.Hint("This key will be used for all chains. Override per chain with --chain flag."))
 		} else {
 			fmt.Println(ui.Success(fmt.Sprintf("Explorer API key for %q saved.", explorerKeyChain)))
+			fmt.Println(ui.Hint("This key takes priority over the global key for " + explorerKeyChain + "."))
 		}
 		return nil
 	},
@@ -136,6 +171,7 @@ You can still override per-invocation with --testnet or --mainnet.`,
 			return err
 		}
 		fmt.Println(ui.Success(fmt.Sprintf("Default network mode set to %q", mode)))
+		fmt.Println(ui.Hint("Override per-call with --testnet or --mainnet."))
 		return nil
 	},
 }

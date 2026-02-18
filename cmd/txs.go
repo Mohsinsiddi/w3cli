@@ -42,13 +42,14 @@ Examples:
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
 
-		spin := ui.NewSpinner(fmt.Sprintf("Fetching last %d transactions on %s...", txsLast, ui.ChainName(chainName)))
+		spin := ui.NewSpinner(fmt.Sprintf("Fetching last %d transactions on %s (%s)...", txsLast, ui.ChainName(chainName), networkMode))
 		spin.Start()
 
 		var txs []*chain.Transaction
+		dataSource := "explorer"
 
 		explorerAPI := c.ExplorerAPIURL(networkMode)
 		apiKey := cfg.GetExplorerAPIKey(chainName)
@@ -56,10 +57,14 @@ Examples:
 			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast, apiKey)
 			if err != nil {
 				spin.Stop()
-				spin = ui.NewSpinner(fmt.Sprintf("Explorer unavailable (%v) — scanning recent blocks...", err))
+				fmt.Println(ui.Warn(fmt.Sprintf("Explorer unavailable: %v", err)))
+				spin = ui.NewSpinner("Falling back to RPC block scanning (slower, limited history)...")
 				spin.Start()
+				dataSource = "rpc"
 				err = nil
 			}
+		} else {
+			dataSource = "rpc"
 		}
 
 		if txs == nil {
@@ -78,8 +83,18 @@ Examples:
 		}
 
 		if len(txs) == 0 {
-			fmt.Println(ui.Meta("No recent transactions found."))
+			fmt.Println(ui.Info("No recent transactions found."))
+			if dataSource == "rpc" {
+				fmt.Println(ui.Hint("RPC block scan only checks the last 20 blocks. Older transactions may not appear."))
+			}
 			return nil
+		}
+
+		if dataSource == "rpc" {
+			fmt.Println(ui.Info(fmt.Sprintf("Found %d transaction(s) via RPC block scan.", len(txs))))
+			fmt.Println(ui.Hint("Block scan only checks the last 20 blocks. For full history, ensure the explorer API is reachable."))
+		} else {
+			fmt.Println(ui.Info(fmt.Sprintf("Found %d transaction(s) via BlockScout explorer.", len(txs))))
 		}
 
 		// Collect unique To addresses for contract name lookup.
