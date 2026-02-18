@@ -44,12 +44,14 @@ func (t *Table) Render() string {
 	cellStyle := lipgloss.NewStyle().Foreground(ColorValue)
 	dimStyle := lipgloss.NewStyle().Foreground(ColorMeta)
 
-	// pad returns s left-aligned within exactly width chars, truncating if needed.
+	// pad returns s left-aligned within exactly width visible chars.
+	// Uses lipgloss.Width() so ANSI color codes in s are not counted as columns.
 	pad := func(s string, width int) string {
-		if len(s) >= width {
-			return s[:width]
+		visible := lipgloss.Width(s)
+		if visible >= width {
+			return s
 		}
-		return s + strings.Repeat(" ", width-len(s))
+		return s + strings.Repeat(" ", width-visible)
 	}
 
 	// Header row.
