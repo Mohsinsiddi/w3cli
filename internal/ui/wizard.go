@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -135,8 +136,11 @@ func (m *wizardModel) applyChoice() {
 func (m *wizardModel) applyInput() {
 	switch m.step {
 	case stepWallet:
-		if m.input != "" {
-			m.result.WalletAddress = m.input
+		// Sanitize: strip whitespace and accidental brackets from paste.
+		addr := strings.TrimSpace(m.input)
+		addr = strings.Trim(addr, "[]")
+		if addr != "" {
+			m.result.WalletAddress = addr
 			m.result.WalletName = "default"
 		}
 		m.step = stepDone - 1 // will be incremented in advance()

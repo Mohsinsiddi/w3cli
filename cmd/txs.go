@@ -15,9 +15,13 @@ var (
 )
 
 var txsCmd = &cobra.Command{
-	Use:   "txs",
+	Use:   "txs [wallet-name-or-address]",
 	Short: "List recent transactions",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 && txsWallet == "" {
+			txsWallet = args[0]
+		}
 		address, chainName, err := resolveWalletAndChain(txsWallet, txsNetwork)
 		if err != nil {
 			return err

@@ -20,9 +20,14 @@ var (
 )
 
 var balanceCmd = &cobra.Command{
-	Use:   "balance",
+	Use:   "balance [wallet-name-or-address]",
 	Short: "Check wallet balance",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Allow positional arg as shorthand for --wallet.
+		if len(args) == 1 && balanceWallet == "" {
+			balanceWallet = args[0]
+		}
 		// Resolve wallet and network.
 		walletAddr, chainName, err := resolveWalletAndChain(balanceWallet, balanceNetwork)
 		if err != nil {
