@@ -22,7 +22,17 @@ var (
 var balanceCmd = &cobra.Command{
 	Use:   "balance [wallet-name-or-address]",
 	Short: "Check wallet balance",
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Check native or ERC-20 token balance for a wallet.
+
+Uses the configured network mode (mainnet/testnet) by default.
+Override per-call with --testnet or --mainnet.
+
+Examples:
+  w3cli balance 0xABC...                        # default chain + mode
+  w3cli balance --network base --testnet         # Base Sepolia
+  w3cli balance --network ethereum --mainnet     # Ethereum mainnet
+  w3cli balance --token 0xUSDC... --live         # ERC-20 live dashboard`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Allow positional arg as shorthand for --wallet.
 		if len(args) == 1 && balanceWallet == "" {

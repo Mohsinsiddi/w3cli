@@ -41,6 +41,31 @@ func TestSaveAndReloadConfig(t *testing.T) {
 	assert.Equal(t, "round-robin", reloaded.RPCAlgorithm)
 }
 
+func TestNetworkModePersistence(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := config.Load(dir)
+	require.NoError(t, err)
+
+	// Default should be mainnet.
+	assert.Equal(t, "mainnet", cfg.NetworkMode)
+
+	// Switch to testnet and save.
+	cfg.NetworkMode = "testnet"
+	require.NoError(t, cfg.Save())
+
+	reloaded, err := config.Load(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "testnet", reloaded.NetworkMode)
+
+	// Switch back to mainnet.
+	reloaded.NetworkMode = "mainnet"
+	require.NoError(t, reloaded.Save())
+
+	reloaded2, err := config.Load(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "mainnet", reloaded2.NetworkMode)
+}
+
 func TestAddCustomRPC(t *testing.T) {
 	dir := t.TempDir()
 	cfg, err := config.Load(dir)

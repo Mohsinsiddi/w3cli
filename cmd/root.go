@@ -28,7 +28,11 @@ var rootCmd = &cobra.Command{
 	Long: `w3cli — Beautiful, blazing-fast terminal tool for Web3 developers.
 
   Check balances, query transactions, interact with smart contracts,
-  sign and send transactions, and monitor wallets — across 26 chains.`,
+  sign and send transactions, and monitor wallets — across 26 chains.
+
+Global flags --testnet and --mainnet override the configured network mode
+for a single invocation. Without either flag the persisted mode is used
+(default: mainnet). Persist with: w3cli config set-network-mode <mode>`,
 	Version: Version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Load config (skip for commands that don't need it).

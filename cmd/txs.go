@@ -19,7 +19,15 @@ var (
 var txsCmd = &cobra.Command{
 	Use:   "txs [wallet-name-or-address]",
 	Short: "List recent transactions",
-	Args:  cobra.MaximumNArgs(1),
+	Long: `List recent transactions for a wallet with an interactive TUI.
+
+Uses the configured network mode (mainnet/testnet) by default.
+Override per-call with --testnet or --mainnet.
+
+Examples:
+  w3cli txs 0xABC... --network base --last 10
+  w3cli txs --network ethereum --testnet --last 5`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 1 && txsWallet == "" {
 			txsWallet = args[0]

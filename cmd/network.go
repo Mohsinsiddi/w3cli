@@ -53,7 +53,15 @@ var networkListCmd = &cobra.Command{
 var networkUseCmd = &cobra.Command{
 	Use:   "use <chain>",
 	Short: "Set the default network",
-	Args:  cobra.ExactArgs(1),
+	Long: `Set the default chain and persist it to config.
+
+When combined with --testnet or --mainnet the network mode is also persisted.
+
+Examples:
+  w3cli network use base              # set default chain, keep current mode
+  w3cli network use base --testnet    # set default chain + persist testnet mode
+  w3cli network use polygon --mainnet # set default chain + persist mainnet mode`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		reg := chain.NewRegistry()
 		chainName := args[0]

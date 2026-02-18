@@ -62,6 +62,8 @@ func TestHelpCommand(t *testing.T) {
 	assert.Contains(t, strings.ToLower(out), "contract")
 	assert.Contains(t, strings.ToLower(out), "wallet")
 	assert.Contains(t, strings.ToLower(out), "network")
+	assert.Contains(t, out, "--testnet")
+	assert.Contains(t, out, "--mainnet")
 }
 
 func TestNetworkList(t *testing.T) {
@@ -86,6 +88,32 @@ func TestNetworkUseUnknown(t *testing.T) {
 	dir := t.TempDir()
 	_, err := runCLI(t, dir, "network", "use", "unknownchain99")
 	assert.Error(t, err) // should fail
+}
+
+func TestNetworkUseWithTestnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "--testnet", "network", "use", "base")
+	require.NoError(t, err)
+	assert.Contains(t, strings.ToLower(out), "base")
+
+	// Config should now have testnet persisted.
+	cfgOut, err := runCLI(t, dir, "config", "list")
+	require.NoError(t, err)
+	assert.Contains(t, cfgOut, "testnet")
+}
+
+func TestNetworkUseWithMainnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	// First set to testnet.
+	_, _ = runCLI(t, dir, "--testnet", "network", "use", "base")
+	// Now switch back with --mainnet.
+	out, err := runCLI(t, dir, "--mainnet", "network", "use", "base")
+	require.NoError(t, err)
+	assert.Contains(t, strings.ToLower(out), "base")
+
+	cfgOut, err := runCLI(t, dir, "config", "list")
+	require.NoError(t, err)
+	assert.Contains(t, cfgOut, "mainnet")
 }
 
 func TestWalletAddAndList(t *testing.T) {
@@ -153,6 +181,59 @@ func TestConfigSetDefaultNetwork(t *testing.T) {
 	assert.Contains(t, out, "polygon")
 }
 
+func TestConfigSetNetworkMode(t *testing.T) {
+	dir := t.TempDir()
+
+	// Set to testnet.
+	out, err := runCLI(t, dir, "config", "set-network-mode", "testnet")
+	require.NoError(t, err)
+	assert.Contains(t, strings.ToLower(out), "testnet")
+
+	cfgOut, err := runCLI(t, dir, "config", "list")
+	require.NoError(t, err)
+	assert.Contains(t, cfgOut, "testnet")
+
+	// Set back to mainnet.
+	out, err = runCLI(t, dir, "config", "set-network-mode", "mainnet")
+	require.NoError(t, err)
+	assert.Contains(t, strings.ToLower(out), "mainnet")
+
+	cfgOut, err = runCLI(t, dir, "config", "list")
+	require.NoError(t, err)
+	assert.Contains(t, cfgOut, "mainnet")
+}
+
+func TestConfigSetNetworkModeInvalid(t *testing.T) {
+	dir := t.TempDir()
+	_, err := runCLI(t, dir, "config", "set-network-mode", "devnet")
+	assert.Error(t, err)
+}
+
+func TestTestnetMainnetMutuallyExclusive(t *testing.T) {
+	dir := t.TempDir()
+	_, err := runCLI(t, dir, "--testnet", "--mainnet", "config", "list")
+	assert.Error(t, err)
+}
+
+func TestGlobalTestnetFlagInherited(t *testing.T) {
+	dir := t.TempDir()
+	// The --testnet flag should be accepted on any subcommand position.
+	out, err := runCLI(t, dir, "config", "list", "--testnet")
+	require.NoError(t, err)
+	// Config list should show the runtime-overridden mode.
+	assert.Contains(t, out, "network_mode")
+}
+
+func TestGlobalMainnetFlagInherited(t *testing.T) {
+	dir := t.TempDir()
+	// Set config to testnet first.
+	_, _ = runCLI(t, dir, "config", "set-network-mode", "testnet")
+	// --mainnet flag should override at runtime.
+	out, err := runCLI(t, dir, "config", "list", "--mainnet")
+	require.NoError(t, err)
+	assert.Contains(t, out, "network_mode")
+}
+
 func TestUnknownCommandShowsError(t *testing.T) {
 	dir := t.TempDir()
 	out, _ := runCLI(t, dir, "unknowncommand")
@@ -163,4 +244,36 @@ func TestSyncSetSource(t *testing.T) {
 	dir := t.TempDir()
 	_, err := runCLI(t, dir, "sync", "set-source", "https://example.com/deployments.json")
 	require.NoError(t, err)
+}
+
+func TestBalanceHelpShowsTestnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "balance", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--testnet")
+	assert.Contains(t, out, "--mainnet")
+}
+
+func TestTxsHelpShowsTestnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "txs", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--testnet")
+	assert.Contains(t, out, "--mainnet")
+}
+
+func TestSendHelpShowsTestnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "send", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--testnet")
+	assert.Contains(t, out, "--mainnet")
+}
+
+func TestWatchHelpShowsTestnetFlag(t *testing.T) {
+	dir := t.TempDir()
+	out, err := runCLI(t, dir, "watch", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "--testnet")
+	assert.Contains(t, out, "--mainnet")
 }

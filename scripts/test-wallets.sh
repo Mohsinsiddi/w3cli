@@ -143,6 +143,26 @@ run_cmd "help flag"            $CLI --help
 run_cmd "network list"         $CLI network list
 run_cmd "config list (fresh)"  $CLI config list
 
+# ── Step 2b: Global flag sanity ───────────────────────────────────────────────
+
+section "Step 2b: Global Flag Checks"
+
+run_cmd "--testnet flag accepted"    $CLI --testnet config list
+run_cmd "--mainnet flag accepted"    $CLI --mainnet config list
+run_cmd "config set-network-mode testnet" $CLI config set-network-mode testnet
+run_cmd "config list (after testnet)"     $CLI config list
+run_cmd "config set-network-mode mainnet" $CLI config set-network-mode mainnet
+run_cmd "config list (after mainnet)"     $CLI config list
+
+# Verify mutually exclusive flags produce an error
+if $CLI --testnet --mainnet config list > /dev/null 2>&1; then
+  echo -e "  ${RED}✗${RESET} --testnet + --mainnet should error but didn't"
+  FAIL=$((FAIL + 1))
+else
+  echo -e "  ${GREEN}✓${RESET} --testnet + --mainnet correctly rejected"
+  PASS=$((PASS + 1))
+fi
+
 # ── Step 3: Add wallets ───────────────────────────────────────────────────────
 
 section "Step 3: Adding Wallets"
@@ -166,7 +186,7 @@ for MODE in "${MODES[@]}"; do
   if [ "$MODE" = "testnet" ]; then
     MODE_FLAG="--testnet"
   else
-    MODE_FLAG=""
+    MODE_FLAG="--mainnet"
   fi
 
   for CHAIN in "${EVM_CHAINS[@]}"; do
@@ -174,31 +194,23 @@ for MODE in "${MODES[@]}"; do
     echo ""
     echo -e "  ${BOLD}${YELLOW}▶ $CHAIN ($MODE)${RESET}"
 
-    # Set default network + mode
-    if [ "$MODE" = "testnet" ]; then
-      $CLI network use "$CHAIN" --testnet > /dev/null 2>&1 || {
-        echo -e "    ${DIM}↳ skipped (network use failed)${RESET}"
-        SKIP=$((SKIP + 1))
-        continue
-      }
-    else
-      $CLI network use "$CHAIN" > /dev/null 2>&1 || {
-        echo -e "    ${DIM}↳ skipped (network use failed)${RESET}"
-        SKIP=$((SKIP + 1))
-        continue
-      }
-    fi
+    # Set default network
+    $CLI network use "$CHAIN" > /dev/null 2>&1 || {
+      echo -e "    ${DIM}↳ skipped (network use failed)${RESET}"
+      SKIP=$((SKIP + 1))
+      continue
+    }
 
     for ADDR in "${WALLETS[@]}"; do
       SHORT="$(short_addr "$ADDR")"
 
-      # Balance check
+      # Balance check — use global --testnet/--mainnet flag directly
       run_cmd "balance  $SHORT  [$CHAIN/$MODE]" \
-        $CLI balance --wallet "$ADDR" --network "$CHAIN" || true
+        $CLI balance --wallet "$ADDR" --network "$CHAIN" $MODE_FLAG || true
 
-      # Recent transactions
+      # Recent transactions — use global --testnet/--mainnet flag directly
       run_cmd "txs      $SHORT  [$CHAIN/$MODE]" \
-        $CLI txs --wallet "$ADDR" --network "$CHAIN" || true
+        $CLI txs --wallet "$ADDR" --network "$CHAIN" $MODE_FLAG || true
 
     done
 

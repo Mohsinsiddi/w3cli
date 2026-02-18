@@ -15,7 +15,15 @@ var (
 var txCmd = &cobra.Command{
 	Use:   "tx <hash>",
 	Short: "Show transaction details",
-	Args:  cobra.ExactArgs(1),
+	Long: `Show details for a single transaction by hash.
+
+Uses the configured network mode (mainnet/testnet) by default.
+Override per-call with --testnet or --mainnet.
+
+Examples:
+  w3cli tx 0xHASH --network base
+  w3cli tx 0xHASH --network ethereum --testnet`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		hash := args[0]
 		chainName := txNetwork

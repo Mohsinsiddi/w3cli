@@ -11,6 +11,13 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage configuration",
+	Long: `Manage w3cli configuration stored at ~/.w3cli/config.json.
+
+Use subcommands to set defaults for network, wallet, network mode, RPCs,
+and explorer API keys. These defaults are used when no CLI flags are provided.
+
+The --testnet / --mainnet global flags override the persisted network_mode
+for a single invocation without changing the config file.`,
 }
 
 var configListCmd = &cobra.Command{
@@ -106,12 +113,40 @@ Examples:
 	},
 }
 
+var configSetNetworkModeCmd = &cobra.Command{
+	Use:   "set-network-mode <mainnet|testnet>",
+	Short: "Set the default network mode (mainnet or testnet)",
+	Long: `Persist the default network mode so all commands use it automatically.
+
+Examples:
+  w3cli config set-network-mode testnet   # default to testnet
+  w3cli config set-network-mode mainnet   # switch back to mainnet
+
+You can still override per-invocation with --testnet or --mainnet.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		mode := args[0]
+		switch mode {
+		case "mainnet", "testnet":
+		default:
+			return fmt.Errorf("invalid mode %q — choose: mainnet, testnet", mode)
+		}
+		cfg.NetworkMode = mode
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		fmt.Println(ui.Success(fmt.Sprintf("Default network mode set to %q", mode)))
+		return nil
+	},
+}
+
 func init() {
 	configSetExplorerKeyCmd.Flags().StringVar(&explorerKeyChain, "chain", "", "set key for a specific chain only")
 	configCmd.AddCommand(
 		configListCmd,
 		configSetDefaultWalletCmd,
 		configSetDefaultNetworkCmd,
+		configSetNetworkModeCmd,
 		configSetRPCCmd,
 		configSetExplorerKeyCmd,
 	)

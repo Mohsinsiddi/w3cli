@@ -20,6 +20,14 @@ var (
 var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Monitor wallet for incoming/outgoing transactions",
+	Long: `Monitor a wallet with a live-updating balance dashboard.
+
+Uses the configured network mode (mainnet/testnet) by default.
+Override per-call with --testnet or --mainnet.
+
+Examples:
+  w3cli watch --network base
+  w3cli watch --network ethereum --testnet`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address, chainName, err := resolveWalletAndChain(watchWallet, watchNetwork)
 		if err != nil {

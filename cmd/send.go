@@ -27,6 +27,15 @@ var (
 var sendCmd = &cobra.Command{
 	Use:   "send",
 	Short: "Send native tokens or ERC-20 tokens",
+	Long: `Send native tokens or ERC-20 tokens to an address.
+
+Uses the configured network mode (mainnet/testnet) by default.
+Override per-call with --testnet or --mainnet.
+
+Examples:
+  w3cli send --to 0x... --value 0.1
+  w3cli send --to 0x... --value 0.1 --testnet
+  w3cli send --to 0x... --value 100 --token 0xUSDC --gas fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sendTo == "" {
 			return fmt.Errorf("--to is required")
