@@ -19,16 +19,19 @@ const (
 
 // Chain holds all metadata for a single chain.
 type Chain struct {
-	Name             string    `json:"name"`
-	DisplayName      string    `json:"display_name"`
-	ChainID          int64     `json:"chain_id"`  // 0 for non-EVM
-	Type             ChainType `json:"type"`
-	NativeCurrency   string    `json:"native_currency"`
-	MainnetRPCs      []string  `json:"mainnet_rpcs"`
-	TestnetRPCs      []string  `json:"testnet_rpcs"`
-	MainnetExplorer  string    `json:"mainnet_explorer"`
-	TestnetExplorer  string    `json:"testnet_explorer"`
-	TestnetName      string    `json:"testnet_name"`
+	Name                string    `json:"name"`
+	DisplayName         string    `json:"display_name"`
+	ChainID             int64     `json:"chain_id"`  // 0 for non-EVM
+	Type                ChainType `json:"type"`
+	NativeCurrency      string    `json:"native_currency"`
+	MainnetRPCs         []string  `json:"mainnet_rpcs"`
+	TestnetRPCs         []string  `json:"testnet_rpcs"`
+	MainnetExplorer     string    `json:"mainnet_explorer"`
+	TestnetExplorer     string    `json:"testnet_explorer"`
+	TestnetName         string    `json:"testnet_name"`
+	// Etherscan-compatible tx API endpoints (no key required for basic use).
+	MainnetExplorerAPI  string    `json:"mainnet_explorer_api,omitempty"`
+	TestnetExplorerAPI  string    `json:"testnet_explorer_api,omitempty"`
 }
 
 // Registry is the chain registry.
@@ -95,6 +98,15 @@ func (c *Chain) Explorer(mode string) string {
 	return c.MainnetExplorer
 }
 
+// ExplorerAPIURL returns the Etherscan-compatible API endpoint for the given
+// mode, or an empty string if no API is registered for this chain.
+func (c *Chain) ExplorerAPIURL(mode string) string {
+	if mode == "testnet" {
+		return c.TestnetExplorerAPI
+	}
+	return c.MainnetExplorerAPI
+}
+
 // --- chain data ---
 
 func allChains() []Chain {
@@ -103,11 +115,13 @@ func allChains() []Chain {
 		{
 			Name: "ethereum", DisplayName: "Ethereum", ChainID: 1, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://eth.llamarpc.com", "https://cloudflare-eth.com"},
+			MainnetRPCs:    []string{"https://eth.llamarpc.com", "https://ethereum-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.sepolia.org", "https://sepolia.gateway.tenderly.co"},
 			MainnetExplorer: "https://etherscan.io",
 			TestnetExplorer: "https://sepolia.etherscan.io",
 			TestnetName:    "Sepolia",
+			MainnetExplorerAPI: "https://eth.blockscout.com/api",
+			TestnetExplorerAPI: "https://eth-sepolia.blockscout.com/api",
 		},
 		// 2. Base
 		{
@@ -118,16 +132,20 @@ func allChains() []Chain {
 			MainnetExplorer: "https://basescan.org",
 			TestnetExplorer: "https://sepolia.basescan.org",
 			TestnetName:    "Base Sepolia",
+			MainnetExplorerAPI: "https://base.blockscout.com/api",
+			TestnetExplorerAPI: "https://base-sepolia.blockscout.com/api",
 		},
 		// 3. Polygon
 		{
 			Name: "polygon", DisplayName: "Polygon", ChainID: 137, Type: ChainTypeEVM,
 			NativeCurrency: "MATIC",
-			MainnetRPCs:    []string{"https://polygon-rpc.com", "https://rpc-mainnet.maticvigil.com"},
+			MainnetRPCs:    []string{"https://polygon-bor-rpc.publicnode.com", "https://polygon-pokt.nodies.app"},
 			TestnetRPCs:    []string{"https://rpc-amoy.polygon.technology"},
 			MainnetExplorer: "https://polygonscan.com",
 			TestnetExplorer: "https://amoy.polygonscan.com",
 			TestnetName:    "Amoy",
+			MainnetExplorerAPI: "https://polygon.blockscout.com/api",
+			TestnetExplorerAPI: "https://polygon-amoy.blockscout.com/api",
 		},
 		// 4. Arbitrum
 		{
@@ -138,6 +156,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://arbiscan.io",
 			TestnetExplorer: "https://sepolia.arbiscan.io",
 			TestnetName:    "Arb Sepolia",
+			MainnetExplorerAPI: "https://arbitrum.blockscout.com/api",
+			TestnetExplorerAPI: "https://arbitrum-sepolia.blockscout.com/api",
 		},
 		// 5. Optimism
 		{
@@ -148,116 +168,140 @@ func allChains() []Chain {
 			MainnetExplorer: "https://optimistic.etherscan.io",
 			TestnetExplorer: "https://sepolia-optimism.etherscan.io",
 			TestnetName:    "OP Sepolia",
+			MainnetExplorerAPI: "https://optimism.blockscout.com/api",
+			TestnetExplorerAPI: "https://optimism-sepolia.blockscout.com/api",
 		},
 		// 6. BNB Chain
 		{
 			Name: "bnb", DisplayName: "BNB Chain", ChainID: 56, Type: ChainTypeEVM,
 			NativeCurrency: "BNB",
-			MainnetRPCs:    []string{"https://bsc-dataseed.binance.org", "https://bsc-dataseed1.defibit.io"},
+			MainnetRPCs:    []string{"https://bsc-dataseed.binance.org", "https://bsc-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://data-seed-prebsc-1-s1.binance.org:8545"},
 			MainnetExplorer: "https://bscscan.com",
 			TestnetExplorer: "https://testnet.bscscan.com",
 			TestnetName:    "BSC Testnet",
+			MainnetExplorerAPI: "https://bsc.blockscout.com/api",
+			TestnetExplorerAPI: "https://bsc-testnet.blockscout.com/api",
 		},
 		// 7. Avalanche
 		{
 			Name: "avalanche", DisplayName: "Avalanche", ChainID: 43114, Type: ChainTypeEVM,
 			NativeCurrency: "AVAX",
-			MainnetRPCs:    []string{"https://api.avax.network/ext/bc/C/rpc"},
+			MainnetRPCs:    []string{"https://api.avax.network/ext/bc/C/rpc", "https://avalanche-c-chain-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://api.avax-test.network/ext/bc/C/rpc"},
 			MainnetExplorer: "https://snowtrace.io",
 			TestnetExplorer: "https://testnet.snowtrace.io",
 			TestnetName:    "Fuji",
+			MainnetExplorerAPI: "https://avalanche.blockscout.com/api",
+			TestnetExplorerAPI: "https://avalanche-fuji.blockscout.com/api",
 		},
 		// 8. Fantom
 		{
 			Name: "fantom", DisplayName: "Fantom", ChainID: 250, Type: ChainTypeEVM,
 			NativeCurrency: "FTM",
-			MainnetRPCs:    []string{"https://rpc.ftm.tools", "https://fantom.publicnode.com"},
+			MainnetRPCs:    []string{"https://rpcapi.fantom.network", "https://fantom-pokt.nodies.app"},
 			TestnetRPCs:    []string{"https://rpc.testnet.fantom.network"},
 			MainnetExplorer: "https://ftmscan.com",
 			TestnetExplorer: "https://testnet.ftmscan.com",
 			TestnetName:    "FTM Testnet",
+			MainnetExplorerAPI: "https://fantom.blockscout.com/api",
+			TestnetExplorerAPI: "https://fantom-testnet.blockscout.com/api",
 		},
 		// 9. Linea
 		{
 			Name: "linea", DisplayName: "Linea", ChainID: 59144, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://rpc.linea.build"},
+			MainnetRPCs:    []string{"https://rpc.linea.build", "https://linea-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.sepolia.linea.build"},
 			MainnetExplorer: "https://lineascan.build",
 			TestnetExplorer: "https://sepolia.lineascan.build",
 			TestnetName:    "Linea Sepolia",
+			MainnetExplorerAPI: "https://linea.blockscout.com/api",
+			TestnetExplorerAPI: "https://linea-sepolia.blockscout.com/api",
 		},
 		// 10. zkSync Era
 		{
 			Name: "zksync", DisplayName: "zkSync Era", ChainID: 324, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://mainnet.era.zksync.io"},
+			MainnetRPCs:    []string{"https://mainnet.era.zksync.io", "https://zksync-era-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://sepolia.era.zksync.dev"},
 			MainnetExplorer: "https://explorer.zksync.io",
 			TestnetExplorer: "https://sepolia.explorer.zksync.io",
 			TestnetName:    "zkSync Sepolia",
+			MainnetExplorerAPI: "https://zksync.blockscout.com/api",
+			TestnetExplorerAPI: "https://zksync-sepolia.blockscout.com/api",
 		},
 		// 11. Scroll
 		{
 			Name: "scroll", DisplayName: "Scroll", ChainID: 534352, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://rpc.scroll.io"},
+			MainnetRPCs:    []string{"https://rpc.scroll.io", "https://scroll-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://sepolia-rpc.scroll.io"},
 			MainnetExplorer: "https://scrollscan.com",
 			TestnetExplorer: "https://sepolia.scrollscan.com",
 			TestnetName:    "Scroll Sepolia",
+			MainnetExplorerAPI: "https://scroll.blockscout.com/api",
+			TestnetExplorerAPI: "https://scroll-sepolia.blockscout.com/api",
 		},
 		// 12. Mantle
 		{
 			Name: "mantle", DisplayName: "Mantle", ChainID: 5000, Type: ChainTypeEVM,
 			NativeCurrency: "MNT",
-			MainnetRPCs:    []string{"https://rpc.mantle.xyz"},
+			MainnetRPCs:    []string{"https://rpc.mantle.xyz", "https://mantle-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.sepolia.mantle.xyz"},
 			MainnetExplorer: "https://mantlescan.xyz",
 			TestnetExplorer: "https://sepolia.mantlescan.xyz",
 			TestnetName:    "Mantle Sepolia",
+			MainnetExplorerAPI: "https://mantle.blockscout.com/api",
+			TestnetExplorerAPI: "https://mantle-sepolia.blockscout.com/api",
 		},
 		// 13. Celo
 		{
 			Name: "celo", DisplayName: "Celo", ChainID: 42220, Type: ChainTypeEVM,
 			NativeCurrency: "CELO",
-			MainnetRPCs:    []string{"https://forno.celo.org"},
+			MainnetRPCs:    []string{"https://forno.celo.org", "https://celo-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://alfajores-forno.celo-testnet.org"},
 			MainnetExplorer: "https://celoscan.io",
 			TestnetExplorer: "https://alfajores.celoscan.io",
 			TestnetName:    "Alfajores",
+			MainnetExplorerAPI: "https://celo.blockscout.com/api",
+			TestnetExplorerAPI: "https://celo-alfajores.blockscout.com/api",
 		},
 		// 14. Gnosis
 		{
 			Name: "gnosis", DisplayName: "Gnosis", ChainID: 100, Type: ChainTypeEVM,
 			NativeCurrency: "xDAI",
-			MainnetRPCs:    []string{"https://rpc.gnosischain.com"},
+			MainnetRPCs:    []string{"https://rpc.gnosischain.com", "https://gnosis-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.chiadochain.net"},
 			MainnetExplorer: "https://gnosisscan.io",
 			TestnetExplorer: "https://gnosis-chiado.blockscout.com",
 			TestnetName:    "Chiado",
+			MainnetExplorerAPI: "https://gnosis.blockscout.com/api",
+			TestnetExplorerAPI: "https://gnosis-chiado.blockscout.com/api",
 		},
 		// 15. Blast
 		{
 			Name: "blast", DisplayName: "Blast", ChainID: 81457, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://rpc.blast.io"},
+			MainnetRPCs:    []string{"https://rpc.blast.io", "https://blast-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://sepolia.blast.io"},
 			MainnetExplorer: "https://blastscan.io",
 			TestnetExplorer: "https://testnet.blastscan.io",
 			TestnetName:    "Blast Sepolia",
+			MainnetExplorerAPI: "https://blast.blockscout.com/api",
+			TestnetExplorerAPI: "https://blast-sepolia.blockscout.com/api",
 		},
 		// 16. Mode
 		{
 			Name: "mode", DisplayName: "Mode", ChainID: 34443, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://mainnet.mode.network"},
+			MainnetRPCs:    []string{"https://mainnet.mode.network", "https://mode-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://sepolia.mode.network"},
 			MainnetExplorer: "https://explorer.mode.network",
 			TestnetExplorer: "https://sepolia.explorer.mode.network",
 			TestnetName:    "Mode Sepolia",
+			MainnetExplorerAPI: "https://explorer.mode.network/api",
+			TestnetExplorerAPI: "https://sepolia.explorer.mode.network/api",
 		},
 		// 17. Zora
 		{
@@ -268,36 +312,43 @@ func allChains() []Chain {
 			MainnetExplorer: "https://explorer.zora.energy",
 			TestnetExplorer: "https://sepolia.explorer.zora.energy",
 			TestnetName:    "Zora Sepolia",
+			MainnetExplorerAPI: "https://explorer.zora.energy/api",
+			TestnetExplorerAPI: "https://sepolia.explorer.zora.energy/api",
 		},
 		// 18. Moonbeam
 		{
 			Name: "moonbeam", DisplayName: "Moonbeam", ChainID: 1284, Type: ChainTypeEVM,
 			NativeCurrency: "GLMR",
-			MainnetRPCs:    []string{"https://rpc.api.moonbeam.network"},
+			MainnetRPCs:    []string{"https://rpc.api.moonbeam.network", "https://moonbeam-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.api.moonbase.moonbeam.network"},
 			MainnetExplorer: "https://moonscan.io",
 			TestnetExplorer: "https://moonbase.moonscan.io",
 			TestnetName:    "Moonbase Alpha",
+			MainnetExplorerAPI: "https://moonbeam.blockscout.com/api",
+			TestnetExplorerAPI: "https://moonbase.blockscout.com/api",
 		},
 		// 19. Cronos
 		{
 			Name: "cronos", DisplayName: "Cronos", ChainID: 25, Type: ChainTypeEVM,
 			NativeCurrency: "CRO",
-			MainnetRPCs:    []string{"https://evm.cronos.org"},
+			MainnetRPCs:    []string{"https://evm.cronos.org", "https://cronos-evm-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://evm-t3.cronos.org"},
 			MainnetExplorer: "https://cronoscan.com",
 			TestnetExplorer: "https://testnet.cronoscan.com",
 			TestnetName:    "Cronos Testnet",
+			MainnetExplorerAPI: "https://cronos.blockscout.com/api",
+			TestnetExplorerAPI: "https://cronos-testnet.blockscout.com/api",
 		},
-		// 20. Klaytn
+		// 20. Klaytn (now Kaia) — rebranded in 2024
 		{
-			Name: "klaytn", DisplayName: "Klaytn", ChainID: 8217, Type: ChainTypeEVM,
+			Name: "klaytn", DisplayName: "Klaytn (Kaia)", ChainID: 8217, Type: ChainTypeEVM,
 			NativeCurrency: "KLAY",
-			MainnetRPCs:    []string{"https://public-en-cypress.klaytn.net"},
-			TestnetRPCs:    []string{"https://public-en-baobab.klaytn.net"},
-			MainnetExplorer: "https://scope.klaytn.com",
-			TestnetExplorer: "https://baobab.scope.klaytn.com",
-			TestnetName:    "Baobab",
+			MainnetRPCs:    []string{"https://public-en.node.kaia.io", "https://kaia.blockpi.network/v1/rpc/public"},
+			TestnetRPCs:    []string{"https://public-en-kairos.node.kaia.io"},
+			MainnetExplorer: "https://kaiascan.io",
+			TestnetExplorer: "https://kairos.kaiascan.io",
+			TestnetName:    "Kairos",
+			// Kaia uses Blockscout-style explorer, no standard Etherscan-compatible API
 		},
 		// 21. Aurora
 		{
@@ -308,16 +359,20 @@ func allChains() []Chain {
 			MainnetExplorer: "https://aurorascan.dev",
 			TestnetExplorer: "https://testnet.aurorascan.dev",
 			TestnetName:    "Aurora Testnet",
+			MainnetExplorerAPI: "https://explorer.aurora.dev/api",
+			TestnetExplorerAPI: "https://explorer.testnet.aurora.dev/api",
 		},
 		// 22. Polygon zkEVM
 		{
 			Name: "polygon-zkevm", DisplayName: "Polygon zkEVM", ChainID: 1101, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://zkevm-rpc.com"},
+			MainnetRPCs:    []string{"https://zkevm-rpc.com", "https://polygon-zkevm-rpc.publicnode.com"},
 			TestnetRPCs:    []string{"https://rpc.cardona.zkevm-rpc.com"},
 			MainnetExplorer: "https://zkevm.polygonscan.com",
-			TestnetExplorer: "https://cardona.zkevm-rpc.com",
+			TestnetExplorer: "https://cardona-zkevm.polygonscan.com",
 			TestnetName:    "Cardona",
+			MainnetExplorerAPI: "https://zkevm.blockscout.com/api",
+			TestnetExplorerAPI: "https://zkevm-cardona.blockscout.com/api",
 		},
 		// 23. Hyperliquid EVM
 		{
@@ -333,11 +388,13 @@ func allChains() []Chain {
 		{
 			Name: "boba", DisplayName: "Boba Network", ChainID: 288, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
-			MainnetRPCs:    []string{"https://mainnet.boba.network"},
+			MainnetRPCs:    []string{"https://mainnet.boba.network", "https://boba-ethereum.gateway.tenderly.co"},
 			TestnetRPCs:    []string{"https://sepolia.boba.network"},
 			MainnetExplorer: "https://bobascan.com",
 			TestnetExplorer: "https://testnet.bobascan.com",
 			TestnetName:    "Boba Sepolia",
+			MainnetExplorerAPI: "https://blockexplorer.boba.network/api",
+			TestnetExplorerAPI: "https://blockexplorer.sepolia.boba.network/api",
 		},
 		// 25. Solana
 		{

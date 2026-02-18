@@ -32,14 +32,32 @@ var txsCmd = &cobra.Command{
 		spin := ui.NewSpinner(fmt.Sprintf("Fetching last %d transactions on %s...", txsLast, ui.ChainName(chainName)))
 		spin.Start()
 
-		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
-		if err != nil {
-			spin.Stop()
-			return err
+		var txs []*chain.Transaction
+
+		// Try Etherscan-compatible explorer API first (has full history).
+		explorerAPI := c.ExplorerAPIURL(cfg.NetworkMode)
+		if explorerAPI != "" {
+			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast)
+			if err != nil {
+				// Fall back to block scan — log the reason as a dim note.
+				spin.Stop()
+				spin = ui.NewSpinner(fmt.Sprintf("Explorer unavailable (%v) — scanning recent blocks...", err))
+				spin.Start()
+				err = nil // reset for fallback path
+			}
 		}
 
-		client := chain.NewEVMClient(rpcURL)
-		txs, err := client.GetRecentTransactions(address, txsLast)
+		// Fallback: scan last N blocks via RPC (much less complete).
+		if txs == nil {
+			rpcURL, rpcErr := pickBestRPC(c, cfg.NetworkMode)
+			if rpcErr != nil {
+				spin.Stop()
+				return rpcErr
+			}
+			client := chain.NewEVMClient(rpcURL)
+			txs, err = client.GetRecentTransactions(address, txsLast)
+		}
+
 		spin.Stop()
 		if err != nil {
 			return err
