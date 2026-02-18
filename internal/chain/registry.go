@@ -32,6 +32,8 @@ type Chain struct {
 	// Etherscan-compatible tx API endpoints (no key required for basic use).
 	MainnetExplorerAPI  string    `json:"mainnet_explorer_api,omitempty"`
 	TestnetExplorerAPI  string    `json:"testnet_explorer_api,omitempty"`
+	// FaucetURL is the official testnet faucet (empty = bridge from parent chain).
+	FaucetURL           string    `json:"faucet_url,omitempty"`
 }
 
 // Registry is the chain registry.
@@ -122,6 +124,7 @@ func allChains() []Chain {
 			TestnetName:    "Sepolia",
 			MainnetExplorerAPI: "https://eth.blockscout.com/api",
 			TestnetExplorerAPI: "https://eth-sepolia.blockscout.com/api",
+			FaucetURL:      "https://sepoliafaucet.com",
 		},
 		// 2. Base
 		{
@@ -134,6 +137,7 @@ func allChains() []Chain {
 			TestnetName:    "Base Sepolia",
 			MainnetExplorerAPI: "https://base.blockscout.com/api",
 			TestnetExplorerAPI: "https://base-sepolia.blockscout.com/api",
+			FaucetURL:      "https://www.alchemy.com/faucets/base-sepolia",
 		},
 		// 3. Polygon
 		{
@@ -146,6 +150,7 @@ func allChains() []Chain {
 			TestnetName:    "Amoy",
 			MainnetExplorerAPI: "https://polygon.blockscout.com/api",
 			TestnetExplorerAPI: "https://polygon-amoy.blockscout.com/api",
+			FaucetURL:      "https://faucet.polygon.technology",
 		},
 		// 4. Arbitrum
 		{
@@ -158,6 +163,7 @@ func allChains() []Chain {
 			TestnetName:    "Arb Sepolia",
 			MainnetExplorerAPI: "https://arbitrum.blockscout.com/api",
 			TestnetExplorerAPI: "https://arbitrum-sepolia.blockscout.com/api",
+			FaucetURL:      "https://www.alchemy.com/faucets/arbitrum-sepolia",
 		},
 		// 5. Optimism
 		{
@@ -170,6 +176,7 @@ func allChains() []Chain {
 			TestnetName:    "OP Sepolia",
 			MainnetExplorerAPI: "https://optimism.blockscout.com/api",
 			TestnetExplorerAPI: "https://optimism-sepolia.blockscout.com/api",
+			FaucetURL:      "https://www.alchemy.com/faucets/optimism-sepolia",
 		},
 		// 6. BNB Chain
 		{
@@ -182,6 +189,7 @@ func allChains() []Chain {
 			TestnetName:    "BSC Testnet",
 			MainnetExplorerAPI: "https://bsc.blockscout.com/api",
 			TestnetExplorerAPI: "https://bsc-testnet.blockscout.com/api",
+			FaucetURL:      "https://www.bnbchain.org/en/testnet-faucet",
 		},
 		// 7. Avalanche
 		{
@@ -194,6 +202,7 @@ func allChains() []Chain {
 			TestnetName:    "Fuji",
 			MainnetExplorerAPI: "https://avalanche.blockscout.com/api",
 			TestnetExplorerAPI: "https://avalanche-fuji.blockscout.com/api",
+			FaucetURL:      "https://faucet.avax.network",
 		},
 		// 8. Fantom
 		{
@@ -206,6 +215,7 @@ func allChains() []Chain {
 			TestnetName:    "FTM Testnet",
 			MainnetExplorerAPI: "https://fantom.blockscout.com/api",
 			TestnetExplorerAPI: "https://fantom-testnet.blockscout.com/api",
+			FaucetURL:      "https://faucet.fantom.network",
 		},
 		// 9. Linea
 		{
@@ -218,6 +228,7 @@ func allChains() []Chain {
 			TestnetName:    "Linea Sepolia",
 			MainnetExplorerAPI: "https://linea.blockscout.com/api",
 			TestnetExplorerAPI: "https://linea-sepolia.blockscout.com/api",
+			FaucetURL:      "https://www.infura.io/faucet/linea", // official MetaMask/Consensys faucet
 		},
 		// 10. zkSync Era
 		{
@@ -230,6 +241,7 @@ func allChains() []Chain {
 			TestnetName:    "zkSync Sepolia",
 			MainnetExplorerAPI: "https://zksync.blockscout.com/api",
 			TestnetExplorerAPI: "https://zksync-sepolia.blockscout.com/api",
+			FaucetURL:      "https://faucet.quicknode.com/zksync/sepolia",
 		},
 		// 11. Scroll
 		{
@@ -242,6 +254,7 @@ func allChains() []Chain {
 			TestnetName:    "Scroll Sepolia",
 			MainnetExplorerAPI: "https://scroll.blockscout.com/api",
 			TestnetExplorerAPI: "https://scroll-sepolia.blockscout.com/api",
+			FaucetURL:      "https://faucet.quicknode.com/scroll/sepolia",
 		},
 		// 12. Mantle
 		{
@@ -254,6 +267,7 @@ func allChains() []Chain {
 			TestnetName:    "Mantle Sepolia",
 			MainnetExplorerAPI: "https://mantle.blockscout.com/api",
 			TestnetExplorerAPI: "https://mantle-sepolia.blockscout.com/api",
+			FaucetURL:      "https://faucet.sepolia.mantle.xyz",
 		},
 		// 13. Celo
 		{
@@ -266,6 +280,7 @@ func allChains() []Chain {
 			TestnetName:    "Alfajores",
 			MainnetExplorerAPI: "https://celo.blockscout.com/api",
 			TestnetExplorerAPI: "https://celo-alfajores.blockscout.com/api",
+			FaucetURL:      "https://faucet.celo.org",
 		},
 		// 14. Gnosis
 		{
@@ -278,6 +293,7 @@ func allChains() []Chain {
 			TestnetName:    "Chiado",
 			MainnetExplorerAPI: "https://gnosis.blockscout.com/api",
 			TestnetExplorerAPI: "https://gnosis-chiado.blockscout.com/api",
+			FaucetURL:      "https://faucet.chiadochain.net", // official Chiado testnet faucet
 		},
 		// 15. Blast
 		{
@@ -290,6 +306,7 @@ func allChains() []Chain {
 			TestnetName:    "Blast Sepolia",
 			MainnetExplorerAPI: "https://blast.blockscout.com/api",
 			TestnetExplorerAPI: "https://blast-sepolia.blockscout.com/api",
+			FaucetURL:      "https://faucet.quicknode.com/blast/sepolia",
 		},
 		// 16. Mode
 		{
@@ -302,6 +319,7 @@ func allChains() []Chain {
 			TestnetName:    "Mode Sepolia",
 			MainnetExplorerAPI: "https://explorer.mode.network/api",
 			TestnetExplorerAPI: "https://sepolia.explorer.mode.network/api",
+			FaucetURL:      "https://app.optimism.io/faucet",
 		},
 		// 17. Zora
 		{
@@ -314,6 +332,7 @@ func allChains() []Chain {
 			TestnetName:    "Zora Sepolia",
 			MainnetExplorerAPI: "https://explorer.zora.energy/api",
 			TestnetExplorerAPI: "https://sepolia.explorer.zora.energy/api",
+			FaucetURL:      "https://www.l2faucet.com/zora",
 		},
 		// 18. Moonbeam
 		{
@@ -326,6 +345,7 @@ func allChains() []Chain {
 			TestnetName:    "Moonbase Alpha",
 			MainnetExplorerAPI: "https://moonbeam.blockscout.com/api",
 			TestnetExplorerAPI: "https://moonbase.blockscout.com/api",
+			FaucetURL:      "https://apps.moonbeam.network/moonbase-alpha/faucet",
 		},
 		// 19. Cronos
 		{
@@ -338,6 +358,7 @@ func allChains() []Chain {
 			TestnetName:    "Cronos Testnet",
 			MainnetExplorerAPI: "https://cronos.blockscout.com/api",
 			TestnetExplorerAPI: "https://cronos-testnet.blockscout.com/api",
+			FaucetURL:      "https://cronos.org/faucet",
 		},
 		// 20. Klaytn (now Kaia) — rebranded in 2024
 		{
@@ -348,7 +369,7 @@ func allChains() []Chain {
 			MainnetExplorer: "https://kaiascan.io",
 			TestnetExplorer: "https://kairos.kaiascan.io",
 			TestnetName:    "Kairos",
-			// Kaia uses Blockscout-style explorer, no standard Etherscan-compatible API
+			FaucetURL:      "https://faucet.kaia.io", // official post-rebrand Kaia faucet
 		},
 		// 21. Aurora
 		{
@@ -361,6 +382,7 @@ func allChains() []Chain {
 			TestnetName:    "Aurora Testnet",
 			MainnetExplorerAPI: "https://explorer.aurora.dev/api",
 			TestnetExplorerAPI: "https://explorer.testnet.aurora.dev/api",
+			FaucetURL:      "https://aurora.dev/faucet",
 		},
 		// 22. Polygon zkEVM
 		{
@@ -373,6 +395,7 @@ func allChains() []Chain {
 			TestnetName:    "Cardona",
 			MainnetExplorerAPI: "https://zkevm.blockscout.com/api",
 			TestnetExplorerAPI: "https://zkevm-cardona.blockscout.com/api",
+			FaucetURL:      "https://faucet.polygon.technology",
 		},
 		// 23. Hyperliquid EVM
 		{
@@ -383,6 +406,7 @@ func allChains() []Chain {
 			MainnetExplorer: "https://app.hyperliquid.xyz/explorer",
 			TestnetExplorer: "https://app.hyperliquid-testnet.xyz/explorer",
 			TestnetName:    "HyperEVM Testnet",
+			FaucetURL:      "https://app.hyperliquid-testnet.xyz/drip",
 		},
 		// 24. Boba Network
 		{
@@ -395,6 +419,7 @@ func allChains() []Chain {
 			TestnetName:    "Boba Sepolia",
 			MainnetExplorerAPI: "https://blockexplorer.boba.network/api",
 			TestnetExplorerAPI: "https://blockexplorer.sepolia.boba.network/api",
+			FaucetURL:      "https://hub.boba.network", // Boba Hub (gateway.boba.network redirects here)
 		},
 		// 25. Solana
 		{
@@ -405,6 +430,7 @@ func allChains() []Chain {
 			MainnetExplorer: "https://solscan.io",
 			TestnetExplorer: "https://solscan.io/?cluster=devnet",
 			TestnetName:    "Devnet",
+			FaucetURL:      "https://faucet.solana.com",
 		},
 		// 26. SUI
 		{
@@ -415,6 +441,7 @@ func allChains() []Chain {
 			MainnetExplorer: "https://suiscan.xyz",
 			TestnetExplorer: "https://suiscan.xyz/testnet",
 			TestnetName:    "SUI Testnet",
+			FaucetURL:      "https://faucet.sui.io",
 		},
 	}
 }

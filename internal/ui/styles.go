@@ -95,6 +95,15 @@ func Hint(msg string) string { return StyleHint.Render("💡 " + msg) }
 // ChainName formats a chain name.
 func ChainName(c string) string { return StyleChain.Render(c) }
 
+// DangerBox wraps content in a red rounded border — used for key reveal warnings.
+func DangerBox(content string) string {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorError).
+		Padding(1, 2).
+		Render(content)
+}
+
 // TruncateAddr shortens an address for display: 0x1234…5678.
 func TruncateAddr(addr string) string {
 	if len(addr) <= 10 {

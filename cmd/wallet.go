@@ -79,7 +79,7 @@ var walletListCmd = &cobra.Command{
 			t.AddRow(ui.Row{
 				ui.Val(w.Name),
 				ui.Addr(w.Address),
-				ui.Meta(w.Type),
+				ui.Meta(walletTypeLabel(w.Type)),
 				def,
 			})
 		}
@@ -126,9 +126,91 @@ var walletUseCmd = &cobra.Command{
 	},
 }
 
+var walletGenerateCmd = &cobra.Command{
+	Use:   "generate <name>",
+	Short: "Generate a new EVM wallet",
+	Long: `Generate a brand-new EVM keypair and store the private key in the OS keychain.
+
+The private key is displayed ONCE immediately after creation.
+Copy it and store it in a password manager — if you lose it, the wallet is gone forever.
+
+Re-export later with: w3cli wallet export <name>`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+		mgr := newWalletManager()
+		w, hexKey, err := mgr.Generate(name)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println()
+		fmt.Printf("  %s  %s\n", ui.Meta("Wallet :"), ui.Val(w.Name))
+		fmt.Printf("  %s  %s\n\n", ui.Meta("Address:"), ui.Addr(w.Address))
+
+		box := ui.DangerBox(
+			ui.Warn("SAVE YOUR PRIVATE KEY — shown only once. Never share it.") + "\n\n" +
+				ui.Val(hexKey) + "\n\n" +
+				ui.Hint("Store in a password manager. Lose it → wallet gone forever."),
+		)
+		fmt.Println(box)
+		fmt.Println(ui.Hint("  Re-export anytime: w3cli wallet export " + name))
+		fmt.Println()
+		return nil
+	},
+}
+
+var walletExportCmd = &cobra.Command{
+	Use:   "export <name>",
+	Short: "Re-export the private key of a signing wallet",
+	Long: `Retrieve and display the stored private key for a signing wallet.
+
+You must type the wallet name exactly to confirm before the key is shown.
+The key is retrieved from the OS keychain — it never leaves your machine.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+
+		fmt.Println()
+		fmt.Println(ui.Warn("  You are about to reveal a private key. Keep it secret."))
+		fmt.Println()
+		input := ui.PromptInput(fmt.Sprintf("  Type wallet name %q to confirm", name))
+		if input != name {
+			fmt.Println()
+			fmt.Println(ui.Err("  Name mismatch — export cancelled."))
+			return nil
+		}
+
+		mgr := newWalletManager()
+		hexKey, err := mgr.ExportKey(name)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println()
+		box := ui.DangerBox(
+			ui.Warn("PRIVATE KEY — do not share this with anyone.") + "\n\n" +
+				ui.Val(hexKey),
+		)
+		fmt.Println(box)
+		fmt.Println()
+		return nil
+	},
+}
+
 func init() {
 	walletAddCmd.Flags().StringVar(&walletKeyFlag, "key", "", "private key for signing wallet (stored in OS keychain)")
-	walletCmd.AddCommand(walletAddCmd, walletListCmd, walletRemoveCmd, walletUseCmd)
+	walletCmd.AddCommand(walletAddCmd, walletListCmd, walletRemoveCmd, walletUseCmd, walletGenerateCmd, walletExportCmd)
+}
+
+// walletTypeLabel converts an internal wallet type to a user-friendly label.
+func walletTypeLabel(t string) string {
+	switch t {
+	case wallet.TypeSigning:
+		return "read-write"
+	default:
+		return t // "watch-only" is already user-friendly
+	}
 }
 
 // newWalletManager creates a Manager backed by the config-dir JSON store.

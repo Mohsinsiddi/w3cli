@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,6 +90,61 @@ func (m *Manager) Add(name string, w *Wallet) error {
 	}
 	m.wallets[name] = w
 	return m.persist()
+}
+
+// Generate creates a brand-new EVM keypair, stores the private key in the OS
+// keychain, and returns both the wallet metadata and the raw hex private key.
+// The caller is responsible for displaying the key to the user exactly once.
+func (m *Manager) Generate(name string) (*Wallet, string, error) {
+	if err := m.load(); err != nil {
+		return nil, "", err
+	}
+	if _, exists := m.wallets[name]; exists {
+		return nil, "", ErrWalletExists
+	}
+
+	privKey, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("generating key: %w", err)
+	}
+
+	hexKey := "0x" + hex.EncodeToString(crypto.FromECDSA(privKey))
+	addr := crypto.PubkeyToAddress(privKey.PublicKey).Hex()
+
+	ks := DefaultKeystore()
+	ref, err := ks.Store(name, hexKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("storing key: %w", err)
+	}
+
+	w := &Wallet{
+		Name:      name,
+		Address:   addr,
+		Type:      TypeSigning,
+		KeyRef:    ref,
+		ChainType: "evm",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	m.wallets[name] = w
+	if err := m.persist(); err != nil {
+		return nil, "", err
+	}
+	return w, hexKey, nil
+}
+
+// ExportKey retrieves the raw hex private key for a signing wallet from the keystore.
+func (m *Manager) ExportKey(name string) (string, error) {
+	if err := m.load(); err != nil {
+		return "", err
+	}
+	w, ok := m.wallets[name]
+	if !ok {
+		return "", ErrWalletNotFound
+	}
+	if w.Type != TypeSigning {
+		return "", fmt.Errorf("wallet %q is watch-only — no private key stored", name)
+	}
+	return DefaultKeystore().Retrieve(w.KeyRef)
 }
 
 // AddWithKey derives an EVM address from a hex private key and stores the wallet.
