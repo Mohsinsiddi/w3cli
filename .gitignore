@@ -1,0 +1,31 @@
+# Binaries
+w3cli
+w3cli.exe
+dist/
+
+# Go build artifacts
+*.test
+*.out
+coverage.out
+coverage.html
+
+# npm binary downloads (downloaded at install time, not committed)
+npm/bin/w3cli
+npm/bin/w3cli.exe
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env / secrets
+.env
+*.key
+*.pem
+
+# Test temp dirs
+/tmp/
