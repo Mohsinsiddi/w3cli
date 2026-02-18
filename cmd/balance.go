@@ -17,7 +17,6 @@ var (
 	balanceNetwork string
 	balanceToken   string
 	balanceLive    bool
-	balanceTestnet bool
 )
 
 var balanceCmd = &cobra.Command{
@@ -30,21 +29,16 @@ var balanceCmd = &cobra.Command{
 			balanceWallet = args[0]
 		}
 
-		networkMode := cfg.NetworkMode
-		if balanceTestnet {
-			networkMode = "testnet"
-		}
-
 		walletAddr, chainName, err := resolveWalletAndChain(balanceWallet, balanceNetwork)
 		if err != nil {
 			return err
 		}
 
 		if balanceLive {
-			return runLiveDashboard(walletAddr, chainName, networkMode)
+			return runLiveDashboard(walletAddr, chainName, cfg.NetworkMode)
 		}
 
-		return fetchAndPrintBalance(walletAddr, chainName, networkMode)
+		return fetchAndPrintBalance(walletAddr, chainName, cfg.NetworkMode)
 	},
 }
 
@@ -233,5 +227,4 @@ func init() {
 	balanceCmd.Flags().StringVar(&balanceNetwork, "network", "", "chain to query (default: config)")
 	balanceCmd.Flags().StringVar(&balanceToken, "token", "", "ERC-20 token contract address")
 	balanceCmd.Flags().BoolVar(&balanceLive, "live", false, "live refresh mode")
-	balanceCmd.Flags().BoolVar(&balanceTestnet, "testnet", false, "query the testnet instead of mainnet")
 }

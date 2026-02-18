@@ -14,7 +14,6 @@ var (
 	txsNetwork string
 	txsLast    int
 	txsWallet  string
-	txsTestnet bool
 )
 
 var txsCmd = &cobra.Command{
@@ -26,12 +25,7 @@ var txsCmd = &cobra.Command{
 			txsWallet = args[0]
 		}
 
-		// --testnet flag overrides global network mode for this command only.
 		networkMode := cfg.NetworkMode
-		if txsTestnet {
-			networkMode = "testnet"
-		}
-
 		address, chainName, err := resolveWalletAndChain(txsWallet, txsNetwork)
 		if err != nil {
 			return err
@@ -187,5 +181,4 @@ func init() {
 	txsCmd.Flags().StringVar(&txsWallet, "wallet", "", "wallet name or address")
 	txsCmd.Flags().StringVar(&txsNetwork, "network", "", "chain to query")
 	txsCmd.Flags().IntVar(&txsLast, "last", 10, "number of transactions to show")
-	txsCmd.Flags().BoolVar(&txsTestnet, "testnet", false, "query the testnet instead of mainnet")
 }

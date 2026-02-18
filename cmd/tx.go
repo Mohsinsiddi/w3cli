@@ -10,7 +10,6 @@ import (
 
 var (
 	txNetwork string
-	txTestnet bool
 )
 
 var txCmd = &cobra.Command{
@@ -25,10 +24,6 @@ var txCmd = &cobra.Command{
 		}
 
 		networkMode := cfg.NetworkMode
-		if txTestnet {
-			networkMode = "testnet"
-		}
-
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
@@ -72,5 +67,4 @@ var txCmd = &cobra.Command{
 
 func init() {
 	txCmd.Flags().StringVar(&txNetwork, "network", "", "chain (default: config)")
-	txCmd.Flags().BoolVar(&txTestnet, "testnet", false, "query the testnet instead of mainnet")
 }

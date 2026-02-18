@@ -17,6 +17,8 @@ var (
 	cfgDir  string
 	cfg     *config.Config
 	verbose bool
+	testnet bool
+	mainnet bool
 )
 
 // rootCmd is the top-level command.
@@ -38,6 +40,12 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
 		}
+		if testnet {
+			cfg.NetworkMode = "testnet"
+		}
+		if mainnet {
+			cfg.NetworkMode = "mainnet"
+		}
 		return nil
 	},
 }
@@ -57,6 +65,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgDir, "config", cfgDir, "config directory (default: ~/.w3cli)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVar(&testnet, "testnet", false, "use testnet instead of mainnet")
+	rootCmd.PersistentFlags().BoolVar(&mainnet, "mainnet", false, "use mainnet instead of testnet")
+	rootCmd.MarkFlagsMutuallyExclusive("testnet", "mainnet")
 
 	// Register all sub-commands.
 	rootCmd.AddCommand(

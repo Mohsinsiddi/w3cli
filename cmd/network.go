@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var networkTestnet bool
-
 var networkCmd = &cobra.Command{
 	Use:   "network",
 	Short: "Manage networks",
@@ -65,11 +63,6 @@ var networkUseCmd = &cobra.Command{
 		}
 
 		cfg.DefaultNetwork = chainName
-		if networkTestnet {
-			cfg.NetworkMode = "testnet"
-		} else {
-			cfg.NetworkMode = "mainnet"
-		}
 
 		if err := cfg.Save(); err != nil {
 			return err
@@ -82,6 +75,5 @@ var networkUseCmd = &cobra.Command{
 }
 
 func init() {
-	networkUseCmd.Flags().BoolVar(&networkTestnet, "testnet", false, "use testnet")
 	networkCmd.AddCommand(networkListCmd, networkUseCmd)
 }
