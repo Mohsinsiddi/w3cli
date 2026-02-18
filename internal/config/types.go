@@ -8,7 +8,17 @@ type Config struct {
 	RPCAlgorithm   string              `json:"rpc_algorithm"   mapstructure:"rpc_algorithm"`   // "fastest" | "round-robin" | "failover"
 	PriceCurrency  string              `json:"price_currency"  mapstructure:"price_currency"`
 	WatchInterval  int                 `json:"watch_interval"  mapstructure:"watch_interval"`  // seconds
-	CustomRPCs     map[string][]string `json:"custom_rpcs"     mapstructure:"custom_rpcs"`
+	CustomRPCs     map[string][]string `json:"custom_rpcs"      mapstructure:"custom_rpcs"`
+
+	// Explorer API keys — used to unlock higher rate limits.
+	// ExplorerAPIKey is a global fallback (e.g. an Etherscan V2 key works for
+	// all chains).  ExplorerAPIKeys overrides per chain (key = chain slug).
+	//
+	// Set via:
+	//   w3cli config set-explorer-key <key>
+	//   w3cli config set-explorer-key --chain base <key>
+	ExplorerAPIKey  string            `json:"explorer_api_key,omitempty"  mapstructure:"explorer_api_key"`
+	ExplorerAPIKeys map[string]string `json:"explorer_api_keys,omitempty" mapstructure:"explorer_api_keys"`
 
 	// internal: config dir path used for Save()
 	configDir string

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
@@ -38,20 +40,18 @@ var txsCmd = &cobra.Command{
 
 		var txs []*chain.Transaction
 
-		// Try Etherscan-compatible explorer API first (has full history).
 		explorerAPI := c.ExplorerAPIURL(cfg.NetworkMode)
+		apiKey := cfg.GetExplorerAPIKey(chainName)
 		if explorerAPI != "" {
-			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast)
+			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast, apiKey)
 			if err != nil {
-				// Fall back to block scan — log the reason as a dim note.
 				spin.Stop()
 				spin = ui.NewSpinner(fmt.Sprintf("Explorer unavailable (%v) — scanning recent blocks...", err))
 				spin.Start()
-				err = nil // reset for fallback path
+				err = nil
 			}
 		}
 
-		// Fallback: scan last N blocks via RPC (much less complete).
 		if txs == nil {
 			rpcURL, rpcErr := pickBestRPC(c, cfg.NetworkMode)
 			if rpcErr != nil {
@@ -72,34 +72,106 @@ var txsCmd = &cobra.Command{
 			return nil
 		}
 
+		// Collect unique To addresses for contract name lookup.
+		var contractNames map[string]string
+		if explorerAPI != "" {
+			spin2 := ui.NewSpinner("Resolving contract names...")
+			spin2.Start()
+			toAddrs := make([]string, 0, len(txs))
+			for _, tx := range txs {
+				if tx.IsContract && tx.To != "" {
+					toAddrs = append(toAddrs, tx.To)
+				}
+			}
+			contractNames = chain.FetchContractNames(explorerAPI, toAddrs, apiKey)
+			spin2.Stop()
+		}
+
+		// Build table + per-row data for interactivity.
 		t := ui.NewTable([]ui.Column{
 			{Title: "Hash", Width: 14},
-			{Title: "From", Width: 14},
-			{Title: "To", Width: 14},
-			{Title: "Value (ETH)", Width: 22},
-			{Title: "Block", Width: 10},
+			{Title: "St", Width: 2},
+			{Title: "Method", Width: 14},
+			{Title: "To / Contract", Width: 20},
+			{Title: "Value (ETH)", Width: 20},
+			{Title: "Age", Width: 10},
 		})
 
 		explorer := c.Explorer(cfg.NetworkMode)
+		now := uint64(time.Now().Unix())
+
+		txRowData := make([]ui.TxRow, 0, len(txs))
 
 		for _, tx := range txs {
-			valueStr := "0"
-			if tx.ValueETH != "" {
-				valueStr = tx.ValueETH
+			// Status icon.
+			status := ui.StyleSuccess.Render("v")
+			if !tx.Success {
+				status = ui.StyleError.Render("x")
 			}
+
+			// To label: contract name, or truncated address.
+			toLabel := ui.TruncateAddr(tx.To)
+			if name, ok := contractNames[strings.ToLower(tx.To)]; ok {
+				toLabel = name
+				if len(toLabel) > 20 {
+					toLabel = toLabel[:18] + ".."
+				}
+			}
+
+			// Value.
+			valueStr := "0"
+			if tx.ValueETH != "" && tx.ValueETH != "0.000000000000000000" {
+				v := tx.ValueETH
+				if len(v) > 20 {
+					v = v[:18] + ".."
+				}
+				valueStr = v
+			}
+
+			// Relative age.
+			age := ""
+			if tx.Timestamp > 0 && now > tx.Timestamp {
+				diff := now - tx.Timestamp
+				switch {
+				case diff < 60:
+					age = fmt.Sprintf("%ds ago", diff)
+				case diff < 3600:
+					age = fmt.Sprintf("%dm ago", diff/60)
+				case diff < 86400:
+					age = fmt.Sprintf("%dh ago", diff/3600)
+				default:
+					age = fmt.Sprintf("%dd ago", diff/86400)
+				}
+			}
+
 			t.AddRow(ui.Row{
 				ui.TruncateAddr(tx.Hash),
-				ui.TruncateAddr(tx.From),
-				ui.TruncateAddr(tx.To),
+				status,
+				tx.FunctionName,
+				toLabel,
 				valueStr,
-				fmt.Sprintf("%d", tx.BlockNum),
+				age,
+			})
+
+			explorerURL := ""
+			if explorer != "" && tx.Hash != "" {
+				explorerURL = explorer + "/tx/" + tx.Hash
+			}
+			txRowData = append(txRowData, ui.TxRow{
+				FullHash:    tx.Hash,
+				ExplorerURL: explorerURL,
 			})
 		}
 
-		fmt.Printf("%s  %s\n\n", ui.StyleTitle.Render("Recent Transactions"), ui.Meta(fmt.Sprintf("(%s, %s)", chainName, cfg.NetworkMode)))
-		fmt.Println(t.Render())
-		fmt.Println(ui.Meta(fmt.Sprintf("Explorer: %s/address/%s", explorer, address)))
-		return nil
+		shortAddr := address
+		if len(shortAddr) > 10 {
+			shortAddr = shortAddr[:8] + ".."
+		}
+		title := fmt.Sprintf("%s  %s",
+			ui.StyleTitle.Render("Recent Transactions"),
+			ui.Meta(fmt.Sprintf("(%s · %s · %s)", chainName, cfg.NetworkMode, shortAddr)))
+
+		return ui.RunTxList(title, t, txRowData)
 	},
 }
 

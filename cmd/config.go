@@ -74,6 +74,45 @@ var configSetRPCCmd = &cobra.Command{
 	},
 }
 
+var explorerKeyChain string
+
+var configSetExplorerKeyCmd = &cobra.Command{
+	Use:   "set-explorer-key <key>",
+	Short: "Set a block explorer API key (Etherscan, BlockScout Pro, etc.)",
+	Long: `Store an explorer API key to unlock higher rate limits.
+
+Without --chain, the key is stored as a global fallback that works for all chains
+(e.g. an Etherscan V2 key covers all EVM chains).
+
+With --chain, the key is stored for that specific chain only and takes priority
+over the global key.
+
+Examples:
+  w3cli config set-explorer-key MYKEY123
+  w3cli config set-explorer-key --chain base MYBASEKEY456`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		key := args[0]
+		cfg.SetExplorerAPIKey(explorerKeyChain, key)
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		if explorerKeyChain == "" {
+			fmt.Println(ui.Success("Global explorer API key saved."))
+		} else {
+			fmt.Println(ui.Success(fmt.Sprintf("Explorer API key for %q saved.", explorerKeyChain)))
+		}
+		return nil
+	},
+}
+
 func init() {
-	configCmd.AddCommand(configListCmd, configSetDefaultWalletCmd, configSetDefaultNetworkCmd, configSetRPCCmd)
+	configSetExplorerKeyCmd.Flags().StringVar(&explorerKeyChain, "chain", "", "set key for a specific chain only")
+	configCmd.AddCommand(
+		configListCmd,
+		configSetDefaultWalletCmd,
+		configSetDefaultNetworkCmd,
+		configSetRPCCmd,
+		configSetExplorerKeyCmd,
+	)
 }

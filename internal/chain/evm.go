@@ -33,16 +33,20 @@ type TokenBalance struct {
 
 // Transaction holds a simplified transaction record.
 type Transaction struct {
-	Hash      string
-	From      string
-	To        string
-	Value     *big.Int
-	ValueETH  string
-	Gas       uint64
-	GasPrice  *big.Int
-	Nonce     uint64
-	BlockNum  uint64
-	Timestamp uint64
+	Hash         string
+	From         string
+	To           string
+	Value        *big.Int
+	ValueETH     string
+	Gas          uint64
+	GasUsed      uint64
+	GasPrice     *big.Int
+	Nonce        uint64
+	BlockNum     uint64
+	Timestamp    uint64
+	Success      bool   // true = confirmed success, false = failed/unknown
+	FunctionName string // decoded method name, e.g. "transfer", "swap", "0xa9059cbb"
+	IsContract   bool   // true when input data is present (contract call)
 }
 
 // NewEVMClient creates a new EVM JSON-RPC client pointed at url.

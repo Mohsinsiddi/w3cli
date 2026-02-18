@@ -98,6 +98,30 @@ func (c *Config) GetRPCs(chain string) []string {
 	return c.CustomRPCs[chain]
 }
 
+// GetExplorerAPIKey returns the explorer API key for a chain.
+// Chain-specific key takes priority over the global key.
+func (c *Config) GetExplorerAPIKey(chain string) string {
+	if c.ExplorerAPIKeys != nil {
+		if k, ok := c.ExplorerAPIKeys[chain]; ok && k != "" {
+			return k
+		}
+	}
+	return c.ExplorerAPIKey
+}
+
+// SetExplorerAPIKey stores an explorer API key.
+// Pass chain="" to set the global fallback key.
+func (c *Config) SetExplorerAPIKey(chain, key string) {
+	if chain == "" {
+		c.ExplorerAPIKey = key
+		return
+	}
+	if c.ExplorerAPIKeys == nil {
+		c.ExplorerAPIKeys = make(map[string]string)
+	}
+	c.ExplorerAPIKeys[chain] = key
+}
+
 // Dir returns the config directory.
 func (c *Config) Dir() string {
 	return c.configDir
