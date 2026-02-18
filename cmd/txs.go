@@ -14,6 +14,7 @@ var (
 	txsNetwork string
 	txsLast    int
 	txsWallet  string
+	txsTestnet bool
 )
 
 var txsCmd = &cobra.Command{
@@ -24,6 +25,13 @@ var txsCmd = &cobra.Command{
 		if len(args) == 1 && txsWallet == "" {
 			txsWallet = args[0]
 		}
+
+		// --testnet flag overrides global network mode for this command only.
+		networkMode := cfg.NetworkMode
+		if txsTestnet {
+			networkMode = "testnet"
+		}
+
 		address, chainName, err := resolveWalletAndChain(txsWallet, txsNetwork)
 		if err != nil {
 			return err
@@ -40,7 +48,7 @@ var txsCmd = &cobra.Command{
 
 		var txs []*chain.Transaction
 
-		explorerAPI := c.ExplorerAPIURL(cfg.NetworkMode)
+		explorerAPI := c.ExplorerAPIURL(networkMode)
 		apiKey := cfg.GetExplorerAPIKey(chainName)
 		if explorerAPI != "" {
 			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast, apiKey)
@@ -53,7 +61,7 @@ var txsCmd = &cobra.Command{
 		}
 
 		if txs == nil {
-			rpcURL, rpcErr := pickBestRPC(c, cfg.NetworkMode)
+			rpcURL, rpcErr := pickBestRPC(c, networkMode)
 			if rpcErr != nil {
 				spin.Stop()
 				return rpcErr
@@ -97,7 +105,7 @@ var txsCmd = &cobra.Command{
 			{Title: "Age", Width: 10},
 		})
 
-		explorer := c.Explorer(cfg.NetworkMode)
+		explorer := c.Explorer(networkMode)
 		now := uint64(time.Now().Unix())
 
 		txRowData := make([]ui.TxRow, 0, len(txs))
@@ -169,7 +177,7 @@ var txsCmd = &cobra.Command{
 		}
 		title := fmt.Sprintf("%s  %s",
 			ui.StyleTitle.Render("Recent Transactions"),
-			ui.Meta(fmt.Sprintf("(%s · %s · %s)", chainName, cfg.NetworkMode, shortAddr)))
+			ui.Meta(fmt.Sprintf("(%s · %s · %s)", chainName, networkMode, shortAddr)))
 
 		return ui.RunTxList(title, t, txRowData)
 	},
@@ -179,4 +187,5 @@ func init() {
 	txsCmd.Flags().StringVar(&txsWallet, "wallet", "", "wallet name or address")
 	txsCmd.Flags().StringVar(&txsNetwork, "network", "", "chain to query")
 	txsCmd.Flags().IntVar(&txsLast, "last", 10, "number of transactions to show")
+	txsCmd.Flags().BoolVar(&txsTestnet, "testnet", false, "query the testnet instead of mainnet")
 }
