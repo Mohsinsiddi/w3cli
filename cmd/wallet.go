@@ -74,7 +74,7 @@ var walletListCmd = &cobra.Command{
 		for _, w := range wallets {
 			def := ""
 			if w.IsDefault {
-				def = ui.Success("✓")
+				def = ui.StyleSuccess.Render("✓")
 			}
 			t.AddRow(ui.Row{
 				ui.Val(w.Name),
