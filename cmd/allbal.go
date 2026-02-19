@@ -29,6 +29,10 @@ and displays a total at the bottom.
 Network mode is taken from your config (mainnet by default).
 Override with global flags or --both for a side-by-side view.
 
+Keyboard controls:
+  r   retry all failed chains
+  q   quit
+
 Examples:
   w3cli allbal 0xf39Fd6...            # mainnet, all chains
   w3cli allbal --testnet              # testnet, uses default wallet
@@ -71,9 +75,10 @@ func runAllBal(address, mode string) error {
 		}
 	}
 
-	// Build rows and reverse-index.
+	// Build rows, reverse-index, and name→chain lookup.
 	rows := make([]ui.AllBalRow, len(chains))
 	rowIndex := make(map[string]int, len(chains))
+	chainsByName := make(map[string]chain.Chain, len(chains))
 	for i, c := range chains {
 		rows[i] = ui.AllBalRow{
 			ChainName:   c.Name,
@@ -83,6 +88,7 @@ func runAllBal(address, mode string) error {
 			TestStatus:  ui.ABStatusFetching,
 		}
 		rowIndex[c.Name] = i
+		chainsByName[c.Name] = c
 	}
 
 	// Total goroutines: 1 per chain in single mode, 2 in "both".
@@ -90,16 +96,6 @@ func runAllBal(address, mode string) error {
 	if mode == "both" {
 		total *= 2
 	}
-
-	m := ui.AllBalModel{
-		Address:  address,
-		Mode:     mode,
-		Rows:     rows,
-		RowIndex: rowIndex,
-		Total:    total,
-	}
-
-	prog := tea.NewProgram(m, tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout))
 
 	// Pre-fetch ALL prices in one batch CoinGecko call (avoids per-goroutine rate-limiting).
 	chainNames := make([]string, len(chains))
@@ -109,14 +105,33 @@ func runAllBal(address, mode string) error {
 	priceFetcher := price.NewFetcher(cfg.PriceCurrency)
 	priceMap, _ := priceFetcher.GetPrices(chainNames) // ignore error — rows show "—" if unavailable
 
-	// Fire one goroutine per chain (two for "both").
+	// FetchFn wraps fetchChainBal as a tea.Cmd for retry support.
+	fetchFn := func(chainName, netMode string) tea.Cmd {
+		c := chainsByName[chainName]
+		return func() tea.Msg {
+			return ui.AllBalResultMsg(fetchChainBal(c, address, netMode, priceMap))
+		}
+	}
+
+	m := ui.AllBalModel{
+		Address:  address,
+		Mode:     mode,
+		Rows:     rows,
+		RowIndex: rowIndex,
+		Total:    total,
+		FetchFn:  fetchFn,
+	}
+
+	prog := tea.NewProgram(m, tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout))
+
+	// Fire one goroutine per chain (two for "both") for the initial load.
 	for _, c := range chains {
 		c := c
 		if mode == "both" {
-			go sendChainBal(prog, c, address, "mainnet", priceMap)
-			go sendChainBal(prog, c, address, "testnet", priceMap)
+			go func() { prog.Send(ui.AllBalResultMsg(fetchChainBal(c, address, "mainnet", priceMap))) }()
+			go func() { prog.Send(ui.AllBalResultMsg(fetchChainBal(c, address, "testnet", priceMap))) }()
 		} else {
-			go sendChainBal(prog, c, address, mode, priceMap)
+			go func() { prog.Send(ui.AllBalResultMsg(fetchChainBal(c, address, mode, priceMap))) }()
 		}
 	}
 
@@ -124,19 +139,19 @@ func runAllBal(address, mode string) error {
 	return err
 }
 
-// sendChainBal fetches a single chain balance and sends the result to the TUI.
-func sendChainBal(prog *tea.Program, c chain.Chain, address, netMode string, priceMap map[string]float64) {
+// fetchChainBal fetches the balance for one chain/netMode and returns the result.
+// It is a pure function — safe to call from both goroutines and tea.Cmd.
+func fetchChainBal(c chain.Chain, address, netMode string, priceMap map[string]float64) ui.AllBalResult {
 	start := time.Now()
 
 	rpcURL, err := pickBestRPC(&c, netMode)
 	if err != nil {
-		prog.Send(ui.AllBalResultMsg{
+		return ui.AllBalResult{
 			ChainName: c.Name,
 			NetMode:   netMode,
 			Latency:   time.Since(start),
 			Err:       err,
-		})
-		return
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -158,22 +173,20 @@ func sendChainBal(prog *tea.Program, c chain.Chain, address, netMode string, pri
 	var bal *chain.Balance
 	select {
 	case <-ctx.Done():
-		prog.Send(ui.AllBalResultMsg{
+		return ui.AllBalResult{
 			ChainName: c.Name,
 			NetMode:   netMode,
 			Latency:   time.Since(start),
 			Err:       fmt.Errorf("timeout"),
-		})
-		return
+		}
 	case r := <-ch:
 		if r.err != nil {
-			prog.Send(ui.AllBalResultMsg{
+			return ui.AllBalResult{
 				ChainName: c.Name,
 				NetMode:   netMode,
 				Latency:   time.Since(start),
 				Err:       r.err,
-			})
-			return
+			}
 		}
 		bal = r.bal
 	}
@@ -188,13 +201,13 @@ func sendChainBal(prog *tea.Program, c chain.Chain, address, netMode string, pri
 		}
 	}
 
-	prog.Send(ui.AllBalResultMsg{
+	return ui.AllBalResult{
 		ChainName: c.Name,
 		NetMode:   netMode,
 		Balance:   bal.ETH,
 		USD:       usdStr,
 		Latency:   latency,
-	})
+	}
 }
 
 func init() {

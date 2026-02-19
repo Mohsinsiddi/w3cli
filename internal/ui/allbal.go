@@ -74,6 +74,10 @@ type AllBalModel struct {
 	Frame    int // spinner frame index
 	Sorted   bool
 	Quitting bool
+
+	// FetchFn is called when retrying a failed chain. It must return a tea.Cmd
+	// that sends an AllBalResultMsg back to the program.
+	FetchFn func(chainName, netMode string) tea.Cmd
 }
 
 func (m AllBalModel) Init() tea.Cmd {
@@ -86,6 +90,24 @@ func abTick() tea.Cmd {
 	})
 }
 
+// failCount returns the number of failed fetch slots for the current mode.
+func (m AllBalModel) failCount() int {
+	n := 0
+	for _, row := range m.Rows {
+		if m.Mode == "mainnet" || m.Mode == "both" {
+			if row.MainStatus == ABStatusError {
+				n++
+			}
+		}
+		if m.Mode == "testnet" || m.Mode == "both" {
+			if row.TestStatus == ABStatusError {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 func (m AllBalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -94,6 +116,36 @@ func (m AllBalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c", "esc":
 			m.Quitting = true
 			return m, tea.Quit
+
+		case "r":
+			if m.FetchFn == nil {
+				return m, nil
+			}
+			var cmds []tea.Cmd
+			for i := range m.Rows {
+				if m.Mode == "mainnet" || m.Mode == "both" {
+					if m.Rows[i].MainStatus == ABStatusError {
+						m.Rows[i].MainStatus = ABStatusFetching
+						m.Rows[i].MainErr = ""
+						m.Done--
+						m.Sorted = false
+						cmds = append(cmds, m.FetchFn(m.Rows[i].ChainName, "mainnet"))
+					}
+				}
+				if m.Mode == "testnet" || m.Mode == "both" {
+					if m.Rows[i].TestStatus == ABStatusError {
+						m.Rows[i].TestStatus = ABStatusFetching
+						m.Rows[i].TestErr = ""
+						m.Done--
+						m.Sorted = false
+						cmds = append(cmds, m.FetchFn(m.Rows[i].ChainName, "testnet"))
+					}
+				}
+			}
+			if len(cmds) > 0 {
+				return m, tea.Batch(cmds...)
+			}
+			return m, nil
 		}
 
 	case allBalTickMsg:
@@ -166,7 +218,7 @@ func (m AllBalModel) View() string {
 		TruncateAddr(m.Address), m.Mode)
 	sb.WriteString(StyleTitle.Render(title) + "\n")
 
-	// ── Progress bar ───────────────────────────────────────────────────────
+	// ── Progress line ───────────────────────────────────────────────────────
 	var progress string
 	if m.Done >= m.Total {
 		label := fmt.Sprintf("✓ %d/%d chains done", m.Done, m.Total)
@@ -177,7 +229,7 @@ func (m AllBalModel) View() string {
 	} else {
 		progress = StyleInfo.Render(fmt.Sprintf("%s %d/%d fetching…", spin, m.Done, m.Total))
 	}
-	sb.WriteString(progress + StyleMeta.Render("   press q to quit") + "\n\n")
+	sb.WriteString(progress + "\n\n")
 
 	// ── Table ──────────────────────────────────────────────────────────────
 	if m.Mode == "both" {
@@ -186,18 +238,31 @@ func (m AllBalModel) View() string {
 		sb.WriteString(m.viewSingle(spin))
 	}
 
+	// ── Controls (below table) ─────────────────────────────────────────────
+	sb.WriteString("\n")
+	failed := m.failCount()
+	if failed > 0 && m.FetchFn != nil {
+		sb.WriteString(
+			StyleWarning.Render("[ r ]") + " retry " +
+				StyleError.Render(fmt.Sprintf("%d failed", failed)) +
+				"   ",
+		)
+	}
+	sb.WriteString(StyleMeta.Render("[ q ]") + " quit\n")
+
 	return sb.String()
 }
 
 // viewSingle renders the table for a single network mode (mainnet or testnet).
 func (m AllBalModel) viewSingle(spin string) string {
 	const (
-		wChain = 18
-		wBal   = 24
-		wUSD   = 12
-		wLat   = 10
+		wChain = 16
+		wBal   = 18 // "9999.0000 METIS" = 15 chars — 18 gives breathing room
+		wUSD   = 10 // "$12345.67" = 9 chars
+		wLat   = 8  // "9.999s" = 6 chars
 	)
-	sep := StyleMeta.Render(strings.Repeat("─", wChain+wBal+wUSD+wLat+10))
+	// Separator spans all columns + the 4 two-space gaps + a ~6-char status col.
+	sep := StyleMeta.Render(strings.Repeat("─", wChain+wBal+wUSD+wLat+14))
 
 	var sb strings.Builder
 
@@ -268,21 +333,21 @@ func (m AllBalModel) viewSingle(spin string) string {
 // viewBoth renders the dual-column mainnet + testnet table.
 func (m AllBalModel) viewBoth(spin string) string {
 	const (
-		wChain = 18
-		wBal   = 20
+		wChain = 16
+		wBal   = 18
 		wUSD   = 10
 	)
-	totalW := wChain + (wBal+2+wUSD)*2 + 18
-	sep := StyleMeta.Render(strings.Repeat("─", totalW))
+	// Chain + 2*(Bal + "  " + USD) + "  " + ST(2) = 16 + 2*(18+2+10) + 2 + 2 = 82
+	sep := StyleMeta.Render(strings.Repeat("─", wChain+2*(wBal+wUSD+2)+6))
 
 	var sb strings.Builder
 
 	// Header
 	sb.WriteString(
 		padR(StyleDim.Render("CHAIN"), wChain) + "  " +
-			padR(StyleDim.Render("MAINNET"), wBal) + "  " +
+			padR(StyleDim.Render("MAINNET BAL"), wBal) + "  " +
 			padR(StyleDim.Render("USD"), wUSD) + "  " +
-			padR(StyleDim.Render("TESTNET"), wBal) + "  " +
+			padR(StyleDim.Render("TESTNET BAL"), wBal) + "  " +
 			padR(StyleDim.Render("USD"), wUSD) + "  " +
 			StyleDim.Render("ST") + "\n",
 	)
@@ -312,7 +377,7 @@ func (m AllBalModel) viewBoth(spin string) string {
 		case row.MainStatus == ABStatusError || row.TestStatus == ABStatusError:
 			combined = StyleWarning.Render("!")
 		case row.MainStatus == ABStatusFetching:
-			combined = StyleMeta.Render(mainStat)
+			combined = mainStat
 		}
 		_ = testStat
 
@@ -386,12 +451,13 @@ func renderSingleRow(status ABStatus, balance, usd, currency string, latency tim
 
 	case ABStatusDone:
 		bal, _ := strconv.ParseFloat(balance, 64)
+		balFmt := strconv.FormatFloat(bal, 'f', 4, 64)
 		if bal > 0 {
-			balStr = StyleValue.Render(balance) + " " + StyleDim.Render(currency)
+			balStr = StyleValue.Render(balFmt) + " " + StyleDim.Render(currency)
 			usdStr = StyleSuccess.Render(usd)
 			statStr = StyleSuccess.Render("✓")
 		} else {
-			balStr = StyleDim.Render("0.000000 " + currency)
+			balStr = StyleDim.Render("0.0000 " + currency)
 			usdStr = StyleDim.Render("$0.00")
 			statStr = StyleDim.Render("·")
 		}
