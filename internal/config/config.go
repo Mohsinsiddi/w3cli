@@ -109,6 +109,23 @@ func (c *Config) GetExplorerAPIKey(chain string) string {
 	return c.ExplorerAPIKey
 }
 
+// GetProviderKey returns the API key for a named provider (e.g. "alchemy", "ankr").
+// Returns "" if no key is configured — providers handle the keyless free tier.
+func (c *Config) GetProviderKey(provider string) string {
+	if c.ProviderKeys != nil {
+		return c.ProviderKeys[provider]
+	}
+	return ""
+}
+
+// SetProviderKey stores an API key for the given provider.
+func (c *Config) SetProviderKey(provider, key string) {
+	if c.ProviderKeys == nil {
+		c.ProviderKeys = make(map[string]string)
+	}
+	c.ProviderKeys[provider] = key
+}
+
 // SetExplorerAPIKey stores an explorer API key.
 // Pass chain="" to set the global fallback key.
 func (c *Config) SetExplorerAPIKey(chain, key string) {

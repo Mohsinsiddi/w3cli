@@ -116,9 +116,36 @@ w3cli contract studio MyToken                         # Interactive TUI
 
 ### Config
 ```bash
-w3cli config list                      # Show full config
-w3cli config set-default-network base  # Set default network
+w3cli config list                          # Show full config
+w3cli config list --verbose                # Show full config + raw JSON (includes saved keys)
+w3cli config set-default-network base      # Set default network
+w3cli config set-default-wallet mywallet   # Set default wallet
+w3cli config set-network-mode testnet      # Persist testnet as default mode
+w3cli config set-explorer-key <key>        # Set BlockScout / Etherscan explorer key
+w3cli config set-rpc base https://my.rpc   # Add a custom RPC for a chain
 ```
+
+### Provider API Keys (Transaction History)
+
+Unlock richer transaction history by adding provider API keys. Free providers work out-of-the-box; keyed providers give full indexed history.
+
+```bash
+# Key-gated providers — activate when key is set
+w3cli config set-key etherscan <key>   # Etherscan V2 — 14+ EVM chains (etherscan.io/apis)
+w3cli config set-key alchemy <key>     # Alchemy — ETH, Base, Polygon, ARB, OP (alchemy.com)
+w3cli config set-key moralis <key>     # Moralis — 14+ chains incl. BNB, FTM (moralis.io)
+w3cli config set-key ankr <key>        # Ankr — higher rate limits (ankr.com/rpc/apps)
+
+# Verify saved keys
+w3cli config list --verbose
+```
+
+Provider priority order (first that returns data wins):
+```
+Etherscan → Alchemy → Moralis → BlockScout (free) → Ankr (free) → RPC (last 200 blocks)
+```
+
+See [PROVIDERS.md](./PROVIDERS.md) for full per-chain coverage details.
 
 ### Sync
 ```bash

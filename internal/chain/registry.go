@@ -174,7 +174,7 @@ func allChains() []Chain {
 			MainnetExplorer: "https://optimistic.etherscan.io",
 			TestnetExplorer: "https://sepolia-optimism.etherscan.io",
 			TestnetName:    "OP Sepolia",
-			MainnetExplorerAPI: "https://optimism.blockscout.com/api",
+			MainnetExplorerAPI: "https://explorer.optimism.io/api",
 			TestnetExplorerAPI: "https://optimism-sepolia.blockscout.com/api",
 			FaucetURL:      "https://www.alchemy.com/faucets/optimism-sepolia",
 		},
@@ -187,8 +187,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://bscscan.com",
 			TestnetExplorer: "https://testnet.bscscan.com",
 			TestnetName:    "BSC Testnet",
-			MainnetExplorerAPI: "https://bsc.blockscout.com/api",
-			TestnetExplorerAPI: "https://bsc-testnet.blockscout.com/api",
+			// No free no-key explorer API for BNB — falls through to RPC scan.
+			// Phase 2: Ankr free provider will cover this.
 			FaucetURL:      "https://www.bnbchain.org/en/testnet-faucet",
 		},
 		// 7. Avalanche
@@ -200,8 +200,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://snowtrace.io",
 			TestnetExplorer: "https://testnet.snowtrace.io",
 			TestnetName:    "Fuji",
-			MainnetExplorerAPI: "https://avalanche.blockscout.com/api",
-			TestnetExplorerAPI: "https://avalanche-fuji.blockscout.com/api",
+			MainnetExplorerAPI: "https://api.snowtrace.io/api",
+			TestnetExplorerAPI: "https://api-testnet.snowtrace.io/api",
 			FaucetURL:      "https://faucet.avax.network",
 		},
 		// 8. Fantom
@@ -213,8 +213,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://ftmscan.com",
 			TestnetExplorer: "https://testnet.ftmscan.com",
 			TestnetName:    "FTM Testnet",
-			MainnetExplorerAPI: "https://fantom.blockscout.com/api",
-			TestnetExplorerAPI: "https://fantom-testnet.blockscout.com/api",
+			// No free no-key explorer API for Fantom — falls through to RPC scan.
+			// Phase 2: Ankr free provider will cover this.
 			FaucetURL:      "https://faucet.fantom.network",
 		},
 		// 9. Linea
@@ -226,8 +226,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://lineascan.build",
 			TestnetExplorer: "https://sepolia.lineascan.build",
 			TestnetName:    "Linea Sepolia",
-			MainnetExplorerAPI: "https://linea.blockscout.com/api",
-			TestnetExplorerAPI: "https://linea-sepolia.blockscout.com/api",
+			// No free no-key explorer API for Linea — falls through to RPC scan.
+			// Phase 2: Ankr free provider will cover this.
 			FaucetURL:      "https://www.infura.io/faucet/linea", // official MetaMask/Consensys faucet
 		},
 		// 10. zkSync Era
@@ -265,8 +265,8 @@ func allChains() []Chain {
 			MainnetExplorer: "https://mantlescan.xyz",
 			TestnetExplorer: "https://sepolia.mantlescan.xyz",
 			TestnetName:    "Mantle Sepolia",
-			MainnetExplorerAPI: "https://mantle.blockscout.com/api",
-			TestnetExplorerAPI: "https://mantle-sepolia.blockscout.com/api",
+			// No free no-key explorer API for Mantle — falls through to RPC scan.
+			// Phase 2: Ankr free provider will cover this.
 			FaucetURL:      "https://faucet.sepolia.mantle.xyz",
 		},
 		// 13. Celo

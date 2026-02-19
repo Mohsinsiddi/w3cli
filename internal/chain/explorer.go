@@ -86,6 +86,9 @@ var knownMethods = map[string]string{
 	"0x18160ddd": "totalSupply",
 }
 
+// DecodeMethod is the exported form of decodeMethod for use by other packages.
+func DecodeMethod(input string) string { return decodeMethod(input) }
+
 // decodeMethod returns a human-readable method name from calldata input.
 // Returns "transfer" for plain ETH sends, or the 4-byte hex if unknown.
 func decodeMethod(input string) string {

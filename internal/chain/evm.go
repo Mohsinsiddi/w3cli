@@ -7,7 +7,9 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -134,32 +136,64 @@ func (c *EVMClient) GetBlockNumber() (uint64, error) {
 	return n.Uint64(), nil
 }
 
-// GetRecentTransactions returns the last n transactions involving address from the latest blocks.
-// It scans back up to 10 blocks to find transactions.
+// GetRecentTransactions returns the last n transactions involving address
+// by scanning the most recent 200 blocks in parallel.
 func (c *EVMClient) GetRecentTransactions(address string, n int) ([]*Transaction, error) {
 	latest, err := c.GetBlockNumber()
 	if err != nil {
 		return nil, err
 	}
 
-	address = strings.ToLower(address)
-	var txs []*Transaction
+	addrLower := strings.ToLower(address)
+	const scanBlocks = 200
 
-	scanBlocks := 20
-	for i := 0; i < scanBlocks && len(txs) < n; i++ {
+	type blockResult struct {
+		num uint64
+		txs []*Transaction
+	}
+
+	results := make(chan blockResult, scanBlocks)
+	var wg sync.WaitGroup
+
+	for i := 0; i < scanBlocks; i++ {
 		blockNum := latest - uint64(i)
-		block, err := c.getBlock(blockNum)
-		if err != nil {
-			continue
-		}
-
-		for _, t := range block {
-			if strings.EqualFold(t.From, address) || strings.EqualFold(t.To, address) {
-				txs = append(txs, t)
-				if len(txs) >= n {
-					break
+		wg.Add(1)
+		go func(num uint64) {
+			defer wg.Done()
+			txList, err := c.getBlock(num)
+			if err != nil {
+				results <- blockResult{num: num}
+				return
+			}
+			var matching []*Transaction
+			for _, t := range txList {
+				if strings.EqualFold(t.From, addrLower) || strings.EqualFold(t.To, addrLower) {
+					matching = append(matching, t)
 				}
 			}
+			results <- blockResult{num: num, txs: matching}
+		}(blockNum)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	all := make([]blockResult, 0, scanBlocks)
+	for r := range results {
+		all = append(all, r)
+	}
+
+	// Sort newest-first (highest block number first).
+	sort.Slice(all, func(i, j int) bool { return all[i].num > all[j].num })
+
+	var txs []*Transaction
+	for _, r := range all {
+		txs = append(txs, r.txs...)
+		if len(txs) >= n {
+			txs = txs[:n]
+			break
 		}
 	}
 
@@ -394,6 +428,9 @@ func (c *EVMClient) getBlock(num uint64) ([]*Transaction, error) {
 // --- math helpers ---
 
 var eth1 = new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+
+// WeiToETH converts a wei amount to an ETH decimal string.
+func WeiToETH(wei *big.Int) string { return weiToETH(wei) }
 
 func weiToETH(wei *big.Int) string {
 	f := new(big.Float).SetInt(wei)

@@ -176,6 +176,49 @@ You can still override per-invocation with --testnet or --mainnet.`,
 	},
 }
 
+var configSetKeyCmd = &cobra.Command{
+	Use:   "set-key <provider> <key>",
+	Short: "Set an API key for a provider (ankr, alchemy, moralis, etherscan)",
+	Long: `Store a provider API key to unlock richer transaction history.
+
+Valid providers:
+  ankr       Free advanced API with higher rate limits (ankr.com/rpc/apps)
+  alchemy    Full tx history for Ethereum, Base, Polygon, Arbitrum, Optimism (alchemy.com)
+  moralis    Multi-chain tx history for 14+ chains (moralis.io)
+  etherscan  Etherscan V2 unified key covering all supported EVM chains (etherscan.io/apis)
+
+Examples:
+  w3cli config set-key ankr MYANKRKEY
+  w3cli config set-key alchemy MYALCHEMYKEY
+  w3cli config set-key moralis MYMORALISKEY
+  w3cli config set-key etherscan MYETHERSCANKEY`,
+	Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		provider, key := args[0], args[1]
+
+		validProviders := map[string]string{
+			"ankr":      "Ankr Advanced API — higher rate limits (get key at ankr.com/rpc/apps)",
+			"alchemy":   "Alchemy — full history for Ethereum, Base, Polygon, Arbitrum, Optimism (alchemy.com)",
+			"moralis":   "Moralis Deep Index — 14+ chains including BNB, Fantom, Avalanche (moralis.io)",
+			"etherscan": "Etherscan V2 — unified key covering all supported EVM chains (etherscan.io/apis)",
+		}
+
+		hint, ok := validProviders[provider]
+		if !ok {
+			return fmt.Errorf("unknown provider %q — valid choices: ankr, alchemy, moralis, etherscan", provider)
+		}
+
+		cfg.SetProviderKey(provider, key)
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+
+		fmt.Println(ui.Success(fmt.Sprintf("API key for %q saved.", provider)))
+		fmt.Println(ui.Hint(hint))
+		return nil
+	},
+}
+
 func init() {
 	configSetExplorerKeyCmd.Flags().StringVar(&explorerKeyChain, "chain", "", "set key for a specific chain only")
 	configCmd.AddCommand(
@@ -185,5 +228,6 @@ func init() {
 		configSetNetworkModeCmd,
 		configSetRPCCmd,
 		configSetExplorerKeyCmd,
+		configSetKeyCmd,
 	)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/providers"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -39,8 +40,8 @@ Examples:
 			return err
 		}
 
-		reg := chain.NewRegistry()
-		c, err := reg.GetByName(chainName)
+		chainReg := chain.NewRegistry()
+		c, err := chainReg.GetByName(chainName)
 		if err != nil {
 			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 		}
@@ -48,53 +49,48 @@ Examples:
 		spin := ui.NewSpinner(fmt.Sprintf("Fetching last %d transactions on %s (%s)...", txsLast, ui.ChainName(chainName), networkMode))
 		spin.Start()
 
-		var txs []*chain.Transaction
-		dataSource := "explorer"
-
+		// Build provider registry via factory (etherscan → alchemy → moralis → blockscout → ankr → rpc).
+		rpcURL, rpcErr := pickBestRPC(c, networkMode)
+		if rpcErr != nil {
+			spin.Stop()
+			return rpcErr
+		}
 		explorerAPI := c.ExplorerAPIURL(networkMode)
 		apiKey := cfg.GetExplorerAPIKey(chainName)
-		if explorerAPI != "" {
-			txs, err = chain.GetTransactionsFromExplorer(explorerAPI, address, txsLast, apiKey)
-			if err != nil {
-				spin.Stop()
-				fmt.Println(ui.Warn(fmt.Sprintf("Explorer unavailable: %v", err)))
-				spin = ui.NewSpinner("Falling back to RPC block scanning (slower, limited history)...")
-				spin.Start()
-				dataSource = "rpc"
-				err = nil
-			}
-		} else {
-			dataSource = "rpc"
-		}
 
-		if txs == nil {
-			rpcURL, rpcErr := pickBestRPC(c, networkMode)
-			if rpcErr != nil {
-				spin.Stop()
-				return rpcErr
-			}
-			client := chain.NewEVMClient(rpcURL)
-			txs, err = client.GetRecentTransactions(address, txsLast)
-		}
+		provReg := providers.BuildRegistry(chainName, c, networkMode, rpcURL, cfg)
+		result, _ := provReg.GetTransactions(address, txsLast)
 
 		spin.Stop()
-		if err != nil {
-			return err
+
+		// Print any non-fatal provider warnings.
+		for _, w := range result.Warnings {
+			fmt.Println(ui.Warn(w))
 		}
 
+		txs := result.Txs
 		if len(txs) == 0 {
 			fmt.Println(ui.Info("No recent transactions found."))
-			if dataSource == "rpc" {
-				fmt.Println(ui.Hint("RPC block scan only checks the last 20 blocks. Older transactions may not appear."))
+			// Give chain-specific guidance for chains without a free keyless explorer.
+			noExplorer := c.ExplorerAPIURL(networkMode) == ""
+			ankrUnconfigured := cfg.GetProviderKey("ankr") == ""
+			if noExplorer && ankrUnconfigured {
+				fmt.Println(ui.Hint(fmt.Sprintf(
+					"For full %s history, add a free Ankr key (ankr.com/rpc/apps):\n  w3cli config set-key ankr <key>",
+					chainName,
+				)))
+			} else {
+				fmt.Println(ui.Hint("RPC block scan checks the last 200 blocks. Older transactions may not appear."))
 			}
 			return nil
 		}
 
-		if dataSource == "rpc" {
+		switch result.Source {
+		case "rpc":
 			fmt.Println(ui.Info(fmt.Sprintf("Found %d transaction(s) via RPC block scan.", len(txs))))
-			fmt.Println(ui.Hint("Block scan only checks the last 20 blocks. For full history, ensure the explorer API is reachable."))
-		} else {
-			fmt.Println(ui.Info(fmt.Sprintf("Found %d transaction(s) via BlockScout explorer.", len(txs))))
+			fmt.Println(ui.Hint("Block scan checks the last 200 blocks. For full history add a provider API key."))
+		default:
+			fmt.Println(ui.Info(fmt.Sprintf("Found %d transaction(s) via %s.", len(txs), result.Source)))
 		}
 
 		// Collect unique To addresses for contract name lookup.

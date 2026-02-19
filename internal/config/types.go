@@ -20,6 +20,10 @@ type Config struct {
 	ExplorerAPIKey  string            `json:"explorer_api_key,omitempty"  mapstructure:"explorer_api_key"`
 	ExplorerAPIKeys map[string]string `json:"explorer_api_keys,omitempty" mapstructure:"explorer_api_keys"`
 
+	// Provider API keys — keyed by provider name: "alchemy", "moralis", "ankr", "etherscan".
+	// Set via: w3cli config set-key <provider> <key>
+	ProviderKeys map[string]string `json:"provider_keys,omitempty" mapstructure:"provider_keys"`
+
 	// internal: config dir path used for Save()
 	configDir string
 }
