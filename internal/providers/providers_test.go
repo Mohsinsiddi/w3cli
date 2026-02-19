@@ -494,18 +494,19 @@ func moralisOKResp(txs []map[string]interface{}) []byte {
 
 func makeMoralisTx(hash string) map[string]interface{} {
 	return map[string]interface{}{
-		"hash":             hash,
-		"from_address":     "0xfrom",
-		"to_address":       "0xto",
-		"value":            "1000000000000000000",
-		"gas":              "21000",
-		"gas_price":        "2000000000",
-		"receipt_gas_used": "21000",
-		"nonce":            "5",
-		"block_number":     "12345678",
-		"receipt_status":   "1",
-		"block_timestamp":  "2024-01-01T00:00:00.000Z",
-		"input":            "0x",
+		"hash":                    hash,
+		"from_address":            "0xfrom",
+		"to_address":              "0xto",
+		"value":                   "1000000000000000000",
+		"gas":                     "21000",
+		"gas_price":               "2000000000",
+		"receipt_gas_used":        "21000",
+		"nonce":                   "5",
+		"block_number":            "12345678",
+		"receipt_status":          "1",
+		"block_timestamp":         "2024-01-01T00:00:00.000Z",
+		"method_label":            nil,
+		"receipt_contract_address": nil,
 	}
 }
 
@@ -545,8 +546,10 @@ func TestMoralisGetTransactionsSendsAPIKeyHeader(t *testing.T) {
 
 func TestMoralisGetTransactionsSendsCorrectChainParam(t *testing.T) {
 	var capturedQuery string
+	var capturedPath string
 	srv := testServer(t, func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.RawQuery
+		capturedPath = r.URL.Path
 		w.Write(moralisOKResp(nil)) //nolint:errcheck
 	})
 
@@ -554,6 +557,7 @@ func TestMoralisGetTransactionsSendsCorrectChainParam(t *testing.T) {
 	m.baseURL = srv.URL
 	m.GetTransactions("0xaddr", 10) //nolint:errcheck
 
+	assert.Contains(t, capturedPath, "/wallets/0xaddr/history", "must use /wallets/{addr}/history endpoint")
 	assert.Contains(t, capturedQuery, "chain=0x38")
 	assert.Contains(t, capturedQuery, "limit=10")
 }
@@ -607,7 +611,8 @@ func TestMoralisGetTransactionsFailedTxStatus(t *testing.T) {
 
 func TestMoralisGetTransactionsContractCall(t *testing.T) {
 	tx := makeMoralisTx("0xcontract")
-	tx["input"] = "0xa9059cbb0000" // ERC20 transfer
+	label := "swapExactETHForTokens"
+	tx["method_label"] = label
 
 	srv := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Write(moralisOKResp([]map[string]interface{}{tx})) //nolint:errcheck
@@ -620,7 +625,7 @@ func TestMoralisGetTransactionsContractCall(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
 	assert.True(t, txs[0].IsContract)
-	assert.Equal(t, "transfer", txs[0].FunctionName)
+	assert.Equal(t, "swapExactETHForTokens", txs[0].FunctionName)
 }
 
 func TestMoralisGetTransactionsHTTPError(t *testing.T) {

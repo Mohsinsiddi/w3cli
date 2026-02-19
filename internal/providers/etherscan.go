@@ -51,9 +51,7 @@ func NewEtherscan(chainName, apiKey string) *Etherscan {
 func (e *Etherscan) Name() string { return "etherscan" }
 
 func (e *Etherscan) GetTransactions(address string, n int) ([]*chain.Transaction, error) {
-	url := fmt.Sprintf(
-		"%s?chainid=%d&module=account&action=txlist&address=%s&sort=desc&offset=%d&page=1&apikey=%s",
-		e.baseURL, e.chainID, address, n, e.apiKey,
-	)
-	return chain.GetTransactionsFromExplorer(url, address, n, e.apiKey)
+	// Pass the base URL with chainid; GetTransactionsFromExplorer appends "&module=..." automatically.
+	baseWithChain := fmt.Sprintf("%s?chainid=%d", e.baseURL, e.chainID)
+	return chain.GetTransactionsFromExplorer(baseWithChain, address, n, e.apiKey)
 }

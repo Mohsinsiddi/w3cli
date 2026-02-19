@@ -54,20 +54,23 @@ func NewMoralis(chainName, apiKey string) *Moralis {
 
 func (m *Moralis) Name() string { return "moralis" }
 
-// moralisTx is a single transaction from the Moralis API.
+// moralisTx is a single transaction from the Moralis /wallets/{address}/history API.
+// The v2.2 wallets endpoint does not return raw calldata (input); method_label
+// provides a human-readable label when available.
 type moralisTx struct {
-	Hash           string `json:"hash"`
-	FromAddress    string `json:"from_address"`
-	ToAddress      string `json:"to_address"`
-	Value          string `json:"value"`           // decimal wei
-	Gas            string `json:"gas"`             // decimal
-	GasPrice       string `json:"gas_price"`       // decimal wei
-	GasUsed        string `json:"receipt_gas_used"` // decimal
-	Nonce          string `json:"nonce"`           // decimal
-	BlockNumber    string `json:"block_number"`    // decimal
-	ReceiptStatus  string `json:"receipt_status"`  // "1" = success
-	BlockTimestamp string `json:"block_timestamp"` // ISO 8601
-	Input          string `json:"input"`
+	Hash              string  `json:"hash"`
+	FromAddress       string  `json:"from_address"`
+	ToAddress         string  `json:"to_address"`
+	Value             string  `json:"value"`              // decimal wei
+	Gas               string  `json:"gas"`                // decimal
+	GasPrice          string  `json:"gas_price"`          // decimal wei
+	GasUsed           string  `json:"receipt_gas_used"`   // decimal
+	Nonce             string  `json:"nonce"`              // decimal
+	BlockNumber       string  `json:"block_number"`       // decimal
+	ReceiptStatus     string  `json:"receipt_status"`     // "1" = success
+	BlockTimestamp    string  `json:"block_timestamp"`    // ISO 8601
+	MethodLabel       *string `json:"method_label"`       // e.g. "transfer", may be null
+	ContractAddress   *string `json:"receipt_contract_address"` // set on deploys
 }
 
 type moralisResp struct {
@@ -75,7 +78,8 @@ type moralisResp struct {
 }
 
 func (m *Moralis) GetTransactions(address string, n int) ([]*chain.Transaction, error) {
-	url := fmt.Sprintf("%s/%s/transactions?chain=%s&limit=%d", m.baseURL, address, m.hexChain, n)
+	// Correct Moralis v2.2 endpoint: /wallets/{address}/history
+	url := fmt.Sprintf("%s/wallets/%s/history?chain=%s&limit=%d", m.baseURL, address, m.hexChain, n)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -102,12 +106,27 @@ func (m *Moralis) GetTransactions(address string, n int) ([]*chain.Transaction, 
 
 	txs := make([]*chain.Transaction, 0, len(result.Result))
 	for _, t := range result.Result {
+		// Resolve To: for contract deploys ToAddress is empty, ContractAddress is set.
+		to := t.ToAddress
+		isContract := false
+		if to == "" && t.ContractAddress != nil && *t.ContractAddress != "" {
+			to = *t.ContractAddress
+			isContract = true
+		}
+
+		// Function name: use method_label if present, otherwise "transfer".
+		funcName := "transfer"
+		if t.MethodLabel != nil && *t.MethodLabel != "" {
+			funcName = *t.MethodLabel
+			isContract = true
+		}
+
 		tx := &chain.Transaction{
 			Hash:         t.Hash,
 			From:         t.FromAddress,
-			To:           t.ToAddress,
-			FunctionName: chain.DecodeMethod(t.Input),
-			IsContract:   t.Input != "" && t.Input != "0x",
+			To:           to,
+			FunctionName: funcName,
+			IsContract:   isContract,
 			Success:      t.ReceiptStatus == "1",
 		}
 

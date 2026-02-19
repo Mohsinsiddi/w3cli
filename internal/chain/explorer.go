@@ -111,9 +111,14 @@ func decodeMethod(input string) string {
 // Etherscan/BlockScout-compatible block explorer API.
 // apiKey may be empty (free BlockScout tier) or a paid key (Etherscan, BlockScout Pro).
 func GetTransactionsFromExplorer(apiURL, address string, n int, apiKey string) ([]*Transaction, error) {
+	// Use "&" when apiURL already contains a "?" (e.g. Etherscan V2 includes ?chainid=X).
+	sep := "?"
+	if strings.Contains(apiURL, "?") {
+		sep = "&"
+	}
 	url := fmt.Sprintf(
-		"%s?module=account&action=txlist&address=%s&startblock=0&endblock=99999999&page=1&offset=%d&sort=desc",
-		apiURL, address, n,
+		"%s%smodule=account&action=txlist&address=%s&startblock=0&endblock=99999999&page=1&offset=%d&sort=desc",
+		apiURL, sep, address, n,
 	)
 	if apiKey != "" {
 		url += "&apikey=" + apiKey
