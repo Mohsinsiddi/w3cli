@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
-	"golang.org/x/crypto/sha3"
 )
 
 // Caller calls read-only (view/pure) contract functions.
@@ -96,18 +95,10 @@ func encodeCall(fn *ABIEntry, args []string) (string, error) {
 	return encoded.String(), nil
 }
 
-// functionSelector computes the 4-byte selector for a function.
+// functionSelector returns the 4-byte selector for a function.
+// Delegates to ABIEntry.Selector() which is defined in registry.go.
 func functionSelector(fn *ABIEntry) string {
-	sig := fn.Name + "("
-	types := make([]string, len(fn.Inputs))
-	for i, p := range fn.Inputs {
-		types[i] = p.Type
-	}
-	sig += strings.Join(types, ",") + ")"
-
-	h := sha3.NewLegacyKeccak256()
-	h.Write([]byte(sig))
-	return "0x" + hex.EncodeToString(h.Sum(nil)[:4])
+	return fn.Selector()
 }
 
 // encodeParam encodes a single ABI parameter value as a 32-byte hex word.

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/contract"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/Mohsinsiddi/w3cli/internal/wallet"
 	"github.com/ethereum/go-ethereum/common"
@@ -231,6 +232,28 @@ Examples:
 		fmt.Println(ui.Hint(fmt.Sprintf(
 			"Mint more: w3cli token mint --contract %s --to <addr> --amount <n> --network %s",
 			receipt.ContractAddress, chainName)))
+
+		// ── Auto-register in contract studio ──────────────────────────────────
+		contractReg := newContractRegistry()
+		if loadErr := contractReg.Load(); loadErr == nil {
+			contractReg.Add(&contract.Entry{
+				Name:       tokenSymbol,
+				Network:    chainName,
+				Address:    receipt.ContractAddress,
+				ABI:        contract.GetBuiltinABI("w3token"),
+				Kind:       "builtin",
+				BuiltinID:  "w3token",
+				Deployer:   w.Address,
+				TxHash:     hash,
+				DeployedAt: time.Now().UTC().Format(time.RFC3339),
+			})
+			if saveErr := contractReg.Save(); saveErr == nil {
+				fmt.Println(ui.Success(fmt.Sprintf(
+					"Registered in contract studio as %q — use: w3cli contract studio %s",
+					tokenSymbol, tokenSymbol)))
+			}
+		}
+
 		ui.OpenURL(explorer + "/address/" + receipt.ContractAddress)
 		return nil
 	},

@@ -67,12 +67,38 @@ func (f *Fetcher) FetchFromURL(url string) ([]ABIEntry, error) {
 	return parseABI(body)
 }
 
-// LoadFromFile loads an ABI JSON array from a local file path.
+// LoadFromFile loads a raw ABI JSON array from a local file path.
 func LoadFromFile(path string) ([]ABIEntry, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading ABI file %s: %w", path, err)
 	}
+	return parseABI(data)
+}
+
+// LoadFromArtifact loads an ABI from a local file that is either:
+//   - a raw ABI JSON array: [{"type":"function",...}, ...]
+//   - a Hardhat/Foundry artifact: {"abi":[...],"bytecode":"0x...",...}
+//
+// Both formats are detected automatically.
+func LoadFromArtifact(path string) ([]ABIEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading ABI file %s: %w", path, err)
+	}
+
+	// Attempt to detect a Hardhat/Foundry artifact (object with an "abi" key).
+	var artifact struct {
+		ABI json.RawMessage `json:"abi"`
+	}
+	if json.Unmarshal(data, &artifact) == nil && len(artifact.ABI) > 1 {
+		// artifact.ABI[0] should be '[' for a valid ABI array inside the artifact.
+		if artifact.ABI[0] == '[' {
+			return parseABI(artifact.ABI)
+		}
+	}
+
+	// Fall back: treat the whole file as a raw ABI array.
 	return parseABI(data)
 }
 

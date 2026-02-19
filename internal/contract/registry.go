@@ -1,10 +1,14 @@
 package contract
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // ErrContractNotFound is returned when a contract is not found.
@@ -37,6 +41,23 @@ func (e ABIEntry) IsWriteFunction() bool {
 		(e.StateMutability == "nonpayable" || e.StateMutability == "payable")
 }
 
+// Selector returns the 4-byte hex function selector (e.g. "0xa9059cbb").
+// It is computed as keccak256(name + "(" + comma-separated input types + ")")[0:4].
+// Returns "" for event/constructor entries (those have no callable selector).
+func (e ABIEntry) Selector() string {
+	if e.Type == "event" || e.Type == "constructor" || e.Type == "receive" || e.Type == "fallback" {
+		return ""
+	}
+	types := make([]string, len(e.Inputs))
+	for i, p := range e.Inputs {
+		types[i] = p.Type
+	}
+	sig := e.Name + "(" + strings.Join(types, ",") + ")"
+	h := sha3.NewLegacyKeccak256()
+	h.Write([]byte(sig))
+	return "0x" + hex.EncodeToString(h.Sum(nil)[:4])
+}
+
 // Entry is a stored contract.
 type Entry struct {
 	Name    string     `json:"name"`
@@ -44,6 +65,14 @@ type Entry struct {
 	Address string     `json:"address"`
 	ABI     []ABIEntry `json:"abi"`
 	ABIUrl  string     `json:"abi_url,omitempty"`
+
+	// Metadata added by `token create` and `contract add/import`.
+	Kind       string `json:"kind,omitempty"`        // "builtin", "imported", "custom"
+	BuiltinID  string `json:"builtin_id,omitempty"`  // e.g. "w3token", "erc20"
+	ABISource  string `json:"abi_source,omitempty"`  // path to ABI file (imported contracts)
+	Deployer   string `json:"deployer,omitempty"`    // deployer wallet address
+	TxHash     string `json:"tx_hash,omitempty"`     // deployment tx hash
+	DeployedAt string `json:"deployed_at,omitempty"` // RFC3339 timestamp
 }
 
 // Registry stores and retrieves contract entries.
