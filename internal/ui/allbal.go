@@ -117,6 +117,10 @@ func (m AllBalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Quitting = true
 			return m, tea.Quit
 
+		case "o":
+			openBrowser("https://debank.com/profile/" + m.Address)
+			return m, nil
+
 		case "r":
 			if m.FetchFn == nil {
 				return m, nil
@@ -240,15 +244,7 @@ func (m AllBalModel) View() string {
 
 	// ── Controls (below table) ─────────────────────────────────────────────
 	sb.WriteString("\n")
-	failed := m.failCount()
-	if failed > 0 && m.FetchFn != nil {
-		sb.WriteString(
-			StyleWarning.Render("[ r ]") + " retry " +
-				StyleError.Render(fmt.Sprintf("%d failed", failed)) +
-				"   ",
-		)
-	}
-	sb.WriteString(StyleMeta.Render("[ q ]") + " quit\n")
+	sb.WriteString(abControls(m.failCount(), m.FetchFn != nil))
 
 	return sb.String()
 }
@@ -485,6 +481,28 @@ func padR(s string, n int) string {
 	}
 	return s + strings.Repeat(" ", n-w)
 }
+
+// abControls renders the consistent bottom control bar.
+// Format:  [ r ] retry N failed   [ o ] open in browser   [ q ] quit
+func abControls(failed int, canRetry bool) string {
+	sep := StyleMeta.Render("   ")
+
+	var sb strings.Builder
+	if failed > 0 && canRetry {
+		sb.WriteString(StyleWarning.Render("[ r ]"))
+		sb.WriteString(" retry ")
+		sb.WriteString(StyleError.Render(fmt.Sprintf("%d failed", failed)))
+		sb.WriteString(sep)
+	}
+	sb.WriteString(StyleInfo.Render("[ o ]"))
+	sb.WriteString(StyleMeta.Render(" open in browser"))
+	sb.WriteString(sep)
+	sb.WriteString(StyleMeta.Render("[ q ]"))
+	sb.WriteString(StyleMeta.Render(" quit"))
+	sb.WriteString("\n")
+	return sb.String()
+}
+
 
 func trimErr(s string) string {
 	// Strip common noisy prefixes from RPC error messages.

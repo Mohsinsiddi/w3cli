@@ -122,7 +122,7 @@ func TestTableRenderContainsRowData(t *testing.T) {
 func TestTableRenderHasDivider(t *testing.T) {
 	tbl := NewTable([]Column{{Title: "Col", Width: 8}})
 	result := tbl.Render()
-	assert.Contains(t, result, "--------", "should have a divider line")
+	assert.Contains(t, result, "────────", "should have a divider line")
 }
 
 func TestTableRenderEmptyRows(t *testing.T) {

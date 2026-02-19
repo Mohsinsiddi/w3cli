@@ -114,12 +114,12 @@ Examples:
 
 		// Build table + per-row data for interactivity.
 		t := ui.NewTable([]ui.Column{
-			{Title: "Hash", Width: 14},
-			{Title: "St", Width: 2},
-			{Title: "Method", Width: 14},
-			{Title: "To / Contract", Width: 20},
-			{Title: "Value (ETH)", Width: 20},
-			{Title: "Age", Width: 10},
+			{Title: "HASH", Width: 14},
+			{Title: "ST", Width: 2},
+			{Title: "METHOD", Width: 14},
+			{Title: "TO / CONTRACT", Width: 20},
+			{Title: "VALUE", Width: 16},
+			{Title: "AGE", Width: 10},
 		})
 
 		explorer := c.Explorer(networkMode)
@@ -129,9 +129,9 @@ Examples:
 
 		for _, tx := range txs {
 			// Status icon.
-			status := ui.StyleSuccess.Render("v")
+			status := ui.StyleSuccess.Render("✓")
 			if !tx.Success {
-				status = ui.StyleError.Render("x")
+				status = ui.StyleError.Render("✗")
 			}
 
 			// To label: contract name, or truncated address.
@@ -143,14 +143,12 @@ Examples:
 				}
 			}
 
-			// Value.
-			valueStr := "0"
+			// Value — show 4 decimal places, trim trailing zeros.
+			valueStr := "0.0000 " + c.NativeCurrency
 			if tx.ValueETH != "" && tx.ValueETH != "0.000000000000000000" {
-				v := tx.ValueETH
-				if len(v) > 20 {
-					v = v[:18] + ".."
+				if f := parseFloat(tx.ValueETH); f > 0 {
+					valueStr = fmt.Sprintf("%.4f %s", f, c.NativeCurrency)
 				}
-				valueStr = v
 			}
 
 			// Relative age.
@@ -188,13 +186,10 @@ Examples:
 			})
 		}
 
-		shortAddr := address
-		if len(shortAddr) > 10 {
-			shortAddr = shortAddr[:8] + ".."
-		}
-		title := fmt.Sprintf("%s  %s",
-			ui.StyleTitle.Render("Recent Transactions"),
-			ui.Meta(fmt.Sprintf("(%s · %s · %s)", chainName, networkMode, shortAddr)))
+		title := ui.StyleTitle.Render(
+			fmt.Sprintf("📋 Recent Transactions  ·  %s  ·  %s · %s",
+				ui.TruncateAddr(address), chainName, networkMode),
+		)
 
 		return ui.RunTxList(title, t, txRowData)
 	},

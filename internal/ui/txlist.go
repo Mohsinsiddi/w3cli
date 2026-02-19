@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -78,18 +79,41 @@ func (m txListModel) View() string {
 	m.table.SelIdx = m.cursor
 
 	var sb strings.Builder
+
+	// Title — same style as allbal.
 	sb.WriteString(m.title)
 	sb.WriteString("\n\n")
-	sb.WriteString(m.table.Render())
-	sb.WriteString("\n")
 
+	// Table.
+	sb.WriteString(m.table.Render())
+
+	// Controls bar — same bracket format as allbal.
+	sb.WriteString("\n")
 	if m.flash != "" {
-		sb.WriteString(StyleSuccess.Render("  " + m.flash))
+		sb.WriteString(StyleSuccess.Render("  ✓ " + m.flash))
 	} else {
-		sb.WriteString(StyleMeta.Render("  ↑↓ navigate   o open in browser   c copy hash   q quit"))
+		sb.WriteString(txControls())
 	}
 	sb.WriteString("\n")
 
+	return sb.String()
+}
+
+// txControls renders the consistent bottom control bar for the tx table.
+func txControls() string {
+	sep := StyleMeta.Render("   ")
+	var sb strings.Builder
+	sb.WriteString(StyleMeta.Render("[ ↑↓ ]"))
+	sb.WriteString(StyleMeta.Render(" navigate"))
+	sb.WriteString(sep)
+	sb.WriteString(StyleInfo.Render("[ o ]"))
+	sb.WriteString(StyleMeta.Render(" open in browser"))
+	sb.WriteString(sep)
+	sb.WriteString(StyleWarning.Render("[ c ]"))
+	sb.WriteString(StyleMeta.Render(" copy hash"))
+	sb.WriteString(sep)
+	sb.WriteString(StyleMeta.Render("[ q ]"))
+	sb.WriteString(StyleMeta.Render(" quit"))
 	return sb.String()
 }
 
@@ -101,7 +125,7 @@ func RunTxList(title string, table *Table, txData []TxRow) error {
 		table:  table,
 		txData: txData,
 	}
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }

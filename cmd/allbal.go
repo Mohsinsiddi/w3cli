@@ -31,6 +31,7 @@ Override with global flags or --both for a side-by-side view.
 
 Keyboard controls:
   r   retry all failed chains
+  o   open address on Debank (multi-chain portfolio) in browser
   q   quit
 
 Examples:

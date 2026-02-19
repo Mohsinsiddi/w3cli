@@ -34,18 +34,12 @@ func (t *Table) AddRow(r Row) {
 }
 
 // Render returns the full table as a string.
-// Cells are padded with fmt.Sprintf to guarantee exact column widths — this
-// avoids the lipgloss Width+PaddingRight interaction that wraps content when
-// (content_length + padding) > Width.
+// Cells are padded with lipgloss.Width() so ANSI color codes are not counted
+// as visible characters.
 func (t *Table) Render() string {
 	var sb strings.Builder
 
-	headerStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
-	cellStyle := lipgloss.NewStyle().Foreground(ColorValue)
-	dimStyle := lipgloss.NewStyle().Foreground(ColorMeta)
-
 	// pad returns s left-aligned within exactly width visible chars.
-	// Uses lipgloss.Width() so ANSI color codes in s are not counted as columns.
 	pad := func(s string, width int) string {
 		visible := lipgloss.Width(s)
 		if visible >= width {
@@ -54,23 +48,27 @@ func (t *Table) Render() string {
 		return s + strings.Repeat(" ", width-visible)
 	}
 
-	// Header row.
+	// Header row — dim gray, matching allbal column headers.
 	var headers []string
 	for _, col := range t.Columns {
-		headers = append(headers, headerStyle.Render(pad(col.Title, col.Width)))
+		headers = append(headers, StyleDim.Render(pad(col.Title, col.Width)))
 	}
-	sb.WriteString(strings.Join(headers, " "))
+	sb.WriteString(strings.Join(headers, "  "))
 	sb.WriteString("\n")
 
-	// Divider.
-	var divParts []string
-	for _, col := range t.Columns {
-		divParts = append(divParts, dimStyle.Render(pad(strings.Repeat("-", col.Width), col.Width)))
+	// Divider — box-drawing character, matching allbal separator style.
+	totalW := 0
+	for i, col := range t.Columns {
+		totalW += col.Width
+		if i < len(t.Columns)-1 {
+			totalW += 2 // two-space column gap
+		}
 	}
-	sb.WriteString(strings.Join(divParts, " "))
+	sb.WriteString(StyleMeta.Render(strings.Repeat("─", totalW)))
 	sb.WriteString("\n")
 
 	// Data rows.
+	cellStyle := lipgloss.NewStyle().Foreground(ColorValue)
 	for i, row := range t.Rows {
 		var cells []string
 		for j, col := range t.Columns {
@@ -84,7 +82,7 @@ func (t *Table) Render() string {
 				cells = append(cells, cellStyle.Render(pad(val, col.Width)))
 			}
 		}
-		sb.WriteString(strings.Join(cells, " "))
+		sb.WriteString(strings.Join(cells, "  "))
 		sb.WriteString("\n")
 	}
 
