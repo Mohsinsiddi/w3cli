@@ -45,6 +45,17 @@ var configListCmd = &cobra.Command{
 			apiKeyStatus = "configured ✓"
 		}
 
+		keyStatus := func(provider string) string {
+			k := cfg.GetProviderKey(provider)
+			if k == "" {
+				return "(not set)"
+			}
+			if len(k) > 12 {
+				return k[:6] + "…" + k[len(k)-4:] + " ✓"
+			}
+			return k + " ✓"
+		}
+
 		fmt.Println(ui.KeyValueBlock("Current Configuration", [][2]string{
 			{"Default Network", network},
 			{"Network Mode", mode},
@@ -52,6 +63,13 @@ var configListCmd = &cobra.Command{
 			{"RPC Algorithm", algo},
 			{"Explorer API Key", apiKeyStatus},
 			{"Config Directory", cfg.Dir()},
+		}))
+
+		fmt.Println(ui.KeyValueBlock("Provider Keys  (w3cli config set-key <provider> <key>)", [][2]string{
+			{"etherscan", keyStatus("etherscan")},
+			{"alchemy", keyStatus("alchemy")},
+			{"moralis", keyStatus("moralis")},
+			{"ankr", keyStatus("ankr")},
 		}))
 
 		if verbose {
