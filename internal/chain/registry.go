@@ -274,12 +274,12 @@ func allChains() []Chain {
 			Name: "celo", DisplayName: "Celo", ChainID: 42220, Type: ChainTypeEVM,
 			NativeCurrency: "CELO",
 			MainnetRPCs:    []string{"https://forno.celo.org", "https://celo-rpc.publicnode.com"},
-			TestnetRPCs:    []string{"https://alfajores-forno.celo-testnet.org"},
+			TestnetRPCs:    []string{"https://forno.celo-sepolia.celo-testnet.org"}, // Alfajores deprecated Sept 2025 → Celo Sepolia
 			MainnetExplorer: "https://celoscan.io",
-			TestnetExplorer: "https://alfajores.celoscan.io",
-			TestnetName:    "Alfajores",
+			TestnetExplorer: "https://celo-sepolia.blockscout.com",
+			TestnetName:    "Celo Sepolia",
 			MainnetExplorerAPI: "https://celo.blockscout.com/api",
-			TestnetExplorerAPI: "https://celo-alfajores.blockscout.com/api",
+			TestnetExplorerAPI: "https://celo-sepolia.blockscout.com/api",
 			FaucetURL:      "https://faucet.celo.org",
 		},
 		// 14. Gnosis
@@ -401,8 +401,8 @@ func allChains() []Chain {
 		{
 			Name: "hyperliquid", DisplayName: "Hyperliquid EVM", ChainID: 999, Type: ChainTypeEVM,
 			NativeCurrency: "HYPE",
-			MainnetRPCs:    []string{"https://api.hyperliquid.xyz/evm"},
-			TestnetRPCs:    []string{"https://api.hyperliquid-testnet.xyz/evm"},
+			MainnetRPCs:    []string{"https://rpc.hyperliquid.xyz/evm"}, // official: rpc. not api.
+			TestnetRPCs:    []string{"https://rpc.hyperliquid-testnet.xyz/evm"},
 			MainnetExplorer: "https://app.hyperliquid.xyz/explorer",
 			TestnetExplorer: "https://app.hyperliquid-testnet.xyz/explorer",
 			TestnetName:    "HyperEVM Testnet",

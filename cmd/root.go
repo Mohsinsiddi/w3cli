@@ -79,6 +79,7 @@ func init() {
 		networkCmd,
 		walletCmd,
 		balanceCmd,
+		allBalCmd,
 		txsCmd,
 		txCmd,
 		sendCmd,
