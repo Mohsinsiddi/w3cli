@@ -50,7 +50,7 @@ func (m txListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.txData) {
 				url := m.txData[m.cursor].ExplorerURL
 				if url != "" {
-					openBrowser(url)
+					OpenURL(url)
 					m.flash = "Opening in browser…"
 				} else {
 					m.flash = "No explorer URL available"
@@ -130,8 +130,8 @@ func RunTxList(title string, table *Table, txData []TxRow) error {
 	return err
 }
 
-// openBrowser opens url in the OS default browser.
-func openBrowser(url string) {
+// OpenURL opens url in the OS default browser.
+func OpenURL(url string) {
 	var name string
 	switch runtime.GOOS {
 	case "darwin":

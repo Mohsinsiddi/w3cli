@@ -486,6 +486,74 @@ func (c *EVMClient) CallContract(toAddr, calldata string) (string, error) {
 	return s, nil
 }
 
+// TxReceipt holds the on-chain receipt of a mined transaction.
+type TxReceipt struct {
+	Hash            string
+	Status          uint64 // 1 = success, 0 = reverted
+	BlockNumber     uint64
+	GasUsed         uint64
+	ContractAddress string // non-empty when a contract was deployed
+}
+
+// GetTransactionReceipt fetches the receipt for hash.
+// Returns nil, nil if the transaction is still pending.
+func (c *EVMClient) GetTransactionReceipt(hash string) (*TxReceipt, error) {
+	result, err := c.call("eth_getTransactionReceipt", hash)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil // still pending
+	}
+
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	var r struct {
+		Status          string `json:"status"`
+		BlockNumber     string `json:"blockNumber"`
+		GasUsed         string `json:"gasUsed"`
+		ContractAddress string `json:"contractAddress"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return nil, err
+	}
+
+	receipt := &TxReceipt{Hash: hash, ContractAddress: r.ContractAddress}
+	if s, ok := parseBigHex(r.Status); ok {
+		receipt.Status = s.Uint64()
+	}
+	if bn, ok := parseBigHex(r.BlockNumber); ok {
+		receipt.BlockNumber = bn.Uint64()
+	}
+	if gu, ok := parseBigHex(r.GasUsed); ok {
+		receipt.GasUsed = gu.Uint64()
+	}
+	return receipt, nil
+}
+
+// WaitForReceipt polls every 2 s until the transaction is mined or timeout
+// expires. Returns an error if the transaction reverted (Status == 0).
+func (c *EVMClient) WaitForReceipt(hash string, timeout time.Duration) (*TxReceipt, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		receipt, err := c.GetTransactionReceipt(hash)
+		if err != nil {
+			return nil, err
+		}
+		if receipt != nil {
+			if receipt.Status == 0 {
+				return receipt, fmt.Errorf("transaction reverted (hash: %s)", hash)
+			}
+			return receipt, nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return nil, fmt.Errorf("transaction %s not mined within %s", hash, timeout)
+}
+
 // Ping tests the RPC endpoint and returns latency + block number.
 func (c *EVMClient) Ping(ctx context.Context) (latency time.Duration, blockNum uint64, err error) {
 	start := time.Now()

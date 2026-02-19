@@ -85,6 +85,7 @@ func init() {
 		txsCmd,
 		txCmd,
 		sendCmd,
+		tokenCmd,
 		rpcCmd,
 		contractCmd,
 		configCmd,

@@ -118,7 +118,7 @@ func (m AllBalModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "o":
-			openBrowser("https://debank.com/profile/" + m.Address)
+			OpenURL("https://debank.com/profile/" + m.Address)
 			return m, nil
 
 		case "r":

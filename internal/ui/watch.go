@@ -74,7 +74,7 @@ func (m WatchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.TxData) {
 				url := m.TxData[m.cursor].ExplorerURL
 				if url != "" {
-					openBrowser(url)
+					OpenURL(url)
 					m.flash = "Opening in browser…"
 				} else {
 					m.flash = "No explorer URL available"
