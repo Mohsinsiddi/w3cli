@@ -80,6 +80,8 @@ func init() {
 		walletCmd,
 		balanceCmd,
 		allBalCmd,
+		allGasCmd,
+		blockCmd,
 		txsCmd,
 		txCmd,
 		sendCmd,

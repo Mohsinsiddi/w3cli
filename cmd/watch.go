@@ -1,117 +1,174 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
-	"github.com/Mohsinsiddi/w3cli/internal/price"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var (
 	watchNetwork string
-	watchNotify  bool
 	watchWallet  string
 )
 
 var watchCmd = &cobra.Command{
-	Use:   "watch",
-	Short: "Monitor wallet for incoming/outgoing transactions",
-	Long: `Monitor a wallet with a live-updating balance dashboard.
+	Use:   "watch [address]",
+	Short: "Stream live transactions for an address",
+	Long: `Watch an address for incoming and outgoing transactions in real-time.
 
-Uses the configured network mode (mainnet/testnet) by default.
-Override per-call with --testnet or --mainnet.
+Polls the chain every 3 seconds for new blocks and streams any matching
+transactions into a live TUI table. No WebSocket required — works with
+all public HTTP RPCs.
+
+Direction legend:
+  ←  incoming (to your address)
+  →  outgoing (from your address)
+
+Keyboard controls:
+  ↑↓ / j k   navigate rows
+  o           open selected tx in explorer
+  c           copy selected tx hash
+  q           quit
 
 Examples:
-  w3cli watch --network base
+  w3cli watch 0xabc...
+  w3cli watch 0xabc... --network base
   w3cli watch --network ethereum --testnet`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address, chainName, err := resolveWalletAndChain(watchWallet, watchNetwork)
-		if err != nil {
-			return err
-		}
-
-		reg := chain.NewRegistry()
-		c, err := reg.GetByName(chainName)
-		if err != nil {
-			return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
-		}
-
-		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("Watching %s on %s (%s)", ui.TruncateAddr(address), ui.ChainName(chainName), cfg.NetworkMode)))
-		fmt.Println(ui.Meta("Press q to quit. Balance refreshes automatically.\n"))
-
-		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
-		if err != nil {
-			return err
-		}
-
-		client := chain.NewEVMClient(rpcURL)
-		priceFetcher := price.NewFetcher(cfg.PriceCurrency)
-
-		fetcher := func() ([]ui.BalanceEntry, error) {
-			bal, err := client.GetBalance(address)
-			if err != nil {
-				return nil, err
+		if len(args) == 1 {
+			address = args[0]
+			if watchNetwork == "" {
+				chainName = cfg.DefaultNetwork
+				if chainName == "" {
+					chainName = "ethereum"
+				}
 			}
-			usdPrice, _ := priceFetcher.GetPrice(chainName)
-			usdStr := fmt.Sprintf("$%.2f", parseFloat(bal.ETH)*usdPrice)
-			return []ui.BalanceEntry{
-				{
-					Chain:   chainName,
-					Address: address,
-					Balance: bal.ETH,
-					Symbol:  c.NativeCurrency,
-					USD:     usdStr,
-				},
-			}, nil
+		}
+		if err != nil && address == "" {
+			return err
 		}
 
-		interval := time.Duration(cfg.WatchInterval) * time.Second
-		prog := ui.NewDashboard(interval, fetcher)
-
-		// Also poll for new transactions in background.
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		go watchTransactions(ctx, client, address, chainName, watchNotify)
-
-		_, err = prog.Run()
-		return err
+		mode := cfg.NetworkMode
+		return runWatch(address, chainName, mode)
 	},
 }
 
-func watchTransactions(ctx context.Context, client *chain.EVMClient, address, chainName string, notify bool) {
-	var lastKnown uint64
-
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			block, err := client.GetBlockNumber()
-			if err != nil {
-				continue
-			}
-			if lastKnown == 0 {
-				lastKnown = block
-				continue
-			}
-			if block > lastKnown {
-				// New blocks — check for relevant transactions.
-				lastKnown = block
-			}
-		}
+func runWatch(address, chainName, mode string) error {
+	reg := chain.NewRegistry()
+	c, err := reg.GetByName(chainName)
+	if err != nil {
+		return fmt.Errorf("unknown chain %q — run `w3cli network list` to see all chains", chainName)
 	}
+
+	rpcURL, err := pickBestRPC(c, mode)
+	if err != nil {
+		return err
+	}
+
+	client := chain.NewEVMClient(rpcURL)
+	explorer := c.Explorer(mode)
+
+	m := ui.WatchModel{
+		Address: address,
+		Chain:   chainName,
+		Mode:    mode,
+	}
+
+	prog := tea.NewProgram(m, tea.WithInput(os.Stdin), tea.WithOutput(os.Stdout))
+
+	// Background goroutine: poll for new blocks every 3 seconds.
+	go func() {
+		// Anchor to current block so we don't replay history.
+		startBlock, err := client.GetBlockNumber()
+		if err != nil {
+			prog.Send(ui.WatchStatusMsg{ErrMsg: "could not get starting block: " + err.Error()})
+			return
+		}
+		lastBlock := startBlock
+		prog.Send(ui.WatchStatusMsg{BlockNum: lastBlock, Fetching: false})
+
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			latest, err := client.GetBlockNumber()
+			if err != nil {
+				prog.Send(ui.WatchStatusMsg{BlockNum: lastBlock, ErrMsg: trimWatchErr(err.Error())})
+				continue
+			}
+
+			// Fetch all new blocks since lastBlock.
+			for blk := lastBlock + 1; blk <= latest; blk++ {
+				prog.Send(ui.WatchStatusMsg{BlockNum: blk, Fetching: true})
+
+				txs, err := client.GetBlockTransactions(blk)
+				if err != nil {
+					continue
+				}
+
+				addrLower := strings.ToLower(address)
+				for _, tx := range txs {
+					isFrom := strings.EqualFold(tx.From, addrLower)
+					isTo := strings.EqualFold(tx.To, addrLower)
+					if !isFrom && !isTo {
+						continue
+					}
+
+					direction := "→"
+					counterpart := tx.To
+					if isTo && !isFrom {
+						direction = "←"
+						counterpart = tx.From
+					}
+
+					val := parseFloat(tx.ValueETH)
+					valStr := fmt.Sprintf("%.4f", val)
+
+					explorerURL := ""
+					if explorer != "" && tx.Hash != "" {
+						explorerURL = explorer + "/tx/" + tx.Hash
+					}
+
+					prog.Send(ui.WatchTxMsg{
+						Hash:        tx.Hash,
+						Direction:   direction,
+						Counterpart: ui.TruncateAddr(counterpart),
+						ValueStr:    valStr,
+						Currency:    c.NativeCurrency,
+						BlockNum:    blk,
+						TxRow: ui.TxRow{
+							FullHash:    tx.Hash,
+							ExplorerURL: explorerURL,
+						},
+					})
+				}
+			}
+
+			lastBlock = latest
+			prog.Send(ui.WatchStatusMsg{BlockNum: latest, Fetching: false})
+		}
+	}()
+
+	_, err = prog.Run()
+	return err
+}
+
+func trimWatchErr(s string) string {
+	if len(s) > 40 {
+		return s[:40] + "…"
+	}
+	return s
 }
 
 func init() {
 	watchCmd.Flags().StringVar(&watchWallet, "wallet", "", "wallet name or address")
 	watchCmd.Flags().StringVar(&watchNetwork, "network", "", "chain to watch")
-	watchCmd.Flags().BoolVar(&watchNotify, "notify", false, "send desktop notifications for new transactions")
 }
