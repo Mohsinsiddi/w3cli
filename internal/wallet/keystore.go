@@ -12,6 +12,14 @@ import (
 
 const keychainService = "w3cli"
 
+// KeystoreBackend is the interface satisfied by both Keystore and InMemoryKeystore.
+// Using this interface lets Manager accept either backend, making tests keystroke-free.
+type KeystoreBackend interface {
+	Store(name, hexKey string) (ref string, err error)
+	Retrieve(ref string) (hexKey string, err error)
+	Delete(ref string) error
+}
+
 // sessionCache holds private keys for the lifetime of the current process.
 // After the first keychain access, subsequent signing calls are served from
 // memory — no repeated OS prompts within a single CLI session.

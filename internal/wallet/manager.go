@@ -43,18 +43,22 @@ type Store interface {
 
 // Manager handles wallet CRUD.
 type Manager struct {
-	store   Store
-	wallets map[string]*Wallet
-	loaded  bool
+	store    Store
+	keystore KeystoreBackend
+	wallets  map[string]*Wallet
+	loaded   bool
 }
 
 // Option configures a Manager.
 type Option func(*Manager)
 
-// WithInMemoryStore uses an in-memory store (useful for tests).
+// WithInMemoryStore uses an in-memory store and in-memory keystore (useful for
+// tests). Both the wallet metadata and the private keys are kept in process
+// memory — no filesystem writes and no OS keychain prompts.
 func WithInMemoryStore() Option {
 	return func(m *Manager) {
 		m.store = &memStore{}
+		m.keystore = NewInMemoryKeystore()
 	}
 }
 
@@ -65,11 +69,19 @@ func WithStore(s Store) Option {
 	}
 }
 
+// WithKeystore overrides the key backend (useful for tests — avoids OS keychain prompts).
+func WithKeystore(ks KeystoreBackend) Option {
+	return func(m *Manager) {
+		m.keystore = ks
+	}
+}
+
 // NewManager creates a new wallet manager.
 func NewManager(opts ...Option) *Manager {
 	m := &Manager{
-		wallets: make(map[string]*Wallet),
-		store:   &memStore{},
+		wallets:  make(map[string]*Wallet),
+		store:    &memStore{},
+		keystore: DefaultKeystore(),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -111,8 +123,7 @@ func (m *Manager) Generate(name string) (*Wallet, string, error) {
 	hexKey := "0x" + hex.EncodeToString(crypto.FromECDSA(privKey))
 	addr := crypto.PubkeyToAddress(privKey.PublicKey).Hex()
 
-	ks := DefaultKeystore()
-	ref, err := ks.Store(name, hexKey)
+	ref, err := m.keystore.Store(name, hexKey)
 	if err != nil {
 		return nil, "", fmt.Errorf("storing key: %w", err)
 	}
@@ -144,7 +155,7 @@ func (m *Manager) ExportKey(name string) (string, error) {
 	if w.Type != TypeSigning {
 		return "", fmt.Errorf("wallet %q is watch-only — no private key stored", name)
 	}
-	return DefaultKeystore().Retrieve(w.KeyRef)
+	return m.keystore.Retrieve(w.KeyRef)
 }
 
 // AddWithKey derives an EVM address from a hex private key and stores the wallet.
@@ -165,8 +176,7 @@ func (m *Manager) AddWithKey(name, hexKey string) error {
 	addr := crypto.PubkeyToAddress(privKey.PublicKey).Hex()
 
 	// Store the key in the keystore.
-	ks := DefaultKeystore()
-	ref, err := ks.Store(name, hexKey)
+	ref, err := m.keystore.Store(name, hexKey)
 	if err != nil {
 		return fmt.Errorf("storing key: %w", err)
 	}
