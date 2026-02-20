@@ -88,21 +88,29 @@ Examples:
 			gasMult = big.NewInt(2)
 		}
 
+		// ── Fetch on-chain data needed for the preview ────────────────────────
+		spin := ui.NewSpinner(fmt.Sprintf("Preparing transaction on %s...", c.DisplayName))
+		spin.Start()
+
 		gasPrice, err := client.GasPrice()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		gasPrice.Mul(gasPrice, gasMult)
 
 		chainID, err := client.ChainID()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 
 		nonce, err := client.GetNonce(w.Address)
 		if err != nil {
+			spin.Stop()
 			return err
 		}
+		spin.Stop()
 
 		ks := wallet.DefaultKeystore()
 		signer := wallet.NewSigner(w, ks)
@@ -142,7 +150,7 @@ Examples:
 			return nil
 		}
 
-		spin := ui.NewSpinner(fmt.Sprintf("Broadcasting on %s...", c.DisplayName))
+		spin = ui.NewSpinner(fmt.Sprintf("Broadcasting on %s...", c.DisplayName))
 		spin.Start()
 
 		toAddr := common.HexToAddress(toAddress)
@@ -196,7 +204,10 @@ Examples:
 func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, tokenAddr, valueStr string,
 	gasPrice *big.Int, nonce uint64, chainID int64, c *chain.Chain, explorer string) error {
 
-	// Get token decimals (fallback 18).
+	// ── Prepare: fetch token info + estimate gas ─────────────────────────
+	spin := ui.NewSpinner(fmt.Sprintf("Preparing token transfer on %s...", c.DisplayName))
+	spin.Start()
+
 	decimals := 18
 	if raw, err := client.CallContract(tokenAddr, "0x313ce567"); err == nil && len(raw) >= 66 {
 		if d, ok := new(big.Int).SetString(strings.TrimPrefix(raw, "0x"), 16); ok {
@@ -207,6 +218,7 @@ func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, toke
 	// Scale value by 10^decimals.
 	amt, ok := new(big.Float).SetString(valueStr)
 	if !ok {
+		spin.Stop()
 		return fmt.Errorf("invalid value %q", valueStr)
 	}
 	scale := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
@@ -232,6 +244,7 @@ func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, toke
 	if err != nil {
 		gasLimit = 60000
 	}
+	spin.Stop()
 
 	fmt.Println(ui.KeyValueBlock(
 		fmt.Sprintf("ERC-20 Send Preview · %s (%s)", c.DisplayName, cfg.NetworkMode),
@@ -262,7 +275,7 @@ func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, toke
 		Data:      calldata,
 	})
 
-	spin := ui.NewSpinner("Signing & sending token transfer...")
+	spin = ui.NewSpinner("Signing & sending token transfer...")
 	spin.Start()
 	raw, err := signer.SignTx(tx, big.NewInt(chainID))
 	if err != nil {

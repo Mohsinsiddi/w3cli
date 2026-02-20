@@ -104,7 +104,10 @@ func runAllBal(address, mode string) error {
 		chainNames[i] = c.Name
 	}
 	priceFetcher := price.NewFetcher(cfg.PriceCurrency)
+	priceSpin := ui.NewSpinner("Fetching USD prices...")
+	priceSpin.Start()
 	priceMap, _ := priceFetcher.GetPrices(chainNames) // ignore error — rows show "—" if unavailable
+	priceSpin.Stop()
 
 	// FetchFn wraps fetchChainBal as a tea.Cmd for retry support.
 	fetchFn := func(chainName, netMode string) tea.Cmd {

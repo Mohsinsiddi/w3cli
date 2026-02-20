@@ -76,6 +76,7 @@ func init() {
 	// Register all sub-commands.
 	rootCmd.AddCommand(
 		initCmd,
+		defaultCmd,
 		networkCmd,
 		walletCmd,
 		balanceCmd,

@@ -108,13 +108,17 @@ var rpcBenchmarkCmd = &cobra.Command{
 			rpcs = append(custom, rpcs...)
 		}
 
-		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("Benchmarking %s RPCs (%s)...", c.DisplayName, cfg.NetworkMode)))
-		fmt.Println(ui.Meta(fmt.Sprintf("Testing %d endpoints · algorithm: %s\n", len(rpcs), cfg.RPCAlgorithm)))
+		fmt.Printf("%s\n", ui.StyleTitle.Render(fmt.Sprintf("RPC Benchmark · %s (%s)", c.DisplayName, cfg.NetworkMode)))
+		fmt.Println(ui.Meta(fmt.Sprintf("Testing %d endpoints · algorithm: %s", len(rpcs), cfg.RPCAlgorithm)))
+		fmt.Println()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
+		spin := ui.NewSpinner(fmt.Sprintf("Benchmarking %d endpoints...", len(rpcs)))
+		spin.Start()
 		results := rpc.BenchmarkEVM(ctx, rpcs)
+		spin.Stop()
 
 		t := ui.NewTable([]ui.Column{
 			{Title: "RPC URL", Width: 40},

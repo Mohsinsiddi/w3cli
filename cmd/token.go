@@ -136,8 +136,13 @@ Examples:
 		}
 		deployHex := "0x" + hex.EncodeToString(deployData)
 
+		// ── Fetch on-chain data for preview ──────────────────────────────────
+		spin := ui.NewSpinner(fmt.Sprintf("Preparing deployment on %s...", c.DisplayName))
+		spin.Start()
+
 		gasPrice, err := client.GasPrice()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		gasLimit, err := client.EstimateGas(w.Address, "", deployHex, nil)
@@ -147,12 +152,15 @@ Examples:
 
 		chainID, err := client.ChainID()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		nonce, err := client.GetNonce(w.Address)
 		if err != nil {
+			spin.Stop()
 			return err
 		}
+		spin.Stop()
 
 		// ── Preview ───────────────────────────────────────────────────────────
 		fmt.Println(ui.KeyValueBlock(
@@ -174,7 +182,7 @@ Examples:
 		}
 
 		// ── Sign + broadcast ──────────────────────────────────────────────────
-		spin := ui.NewSpinner("Deploying token...")
+		spin = ui.NewSpinner("Deploying token...")
 		spin.Start()
 
 		tx := types.NewTx(&types.DynamicFeeTx{
@@ -308,7 +316,10 @@ Examples:
 		}
 		client := chain.NewEVMClient(rpcURL)
 
-		// Get token decimals.
+		// ── Fetch on-chain data for preview ──────────────────────────────────
+		spin := ui.NewSpinner(fmt.Sprintf("Preparing mint on %s...", c.DisplayName))
+		spin.Start()
+
 		decimals := 18
 		if raw, err := client.CallContract(tokenContract, "0x313ce567"); err == nil && len(raw) >= 66 {
 			if d, ok := new(big.Int).SetString(strings.TrimPrefix(raw, "0x"), 16); ok {
@@ -319,6 +330,7 @@ Examples:
 		// Scale amount.
 		amtF, ok := new(big.Float).SetString(tokenAmount)
 		if !ok {
+			spin.Stop()
 			return fmt.Errorf("invalid amount %q", tokenAmount)
 		}
 		scale := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
@@ -329,6 +341,7 @@ Examples:
 
 		gasPrice, err := client.GasPrice()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		gasLimit, err := client.EstimateGas(w.Address, tokenContract, calldataHex, nil)
@@ -337,12 +350,15 @@ Examples:
 		}
 		chainID, err := client.ChainID()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		nonce, err := client.GetNonce(w.Address)
 		if err != nil {
+			spin.Stop()
 			return err
 		}
+		spin.Stop()
 
 		fmt.Println(ui.KeyValueBlock(
 			fmt.Sprintf("Mint Preview · %s (%s)", c.DisplayName, cfg.NetworkMode),
@@ -377,7 +393,7 @@ Examples:
 		ks := wallet.DefaultKeystore()
 		signer := wallet.NewSigner(w, ks)
 
-		spin := ui.NewSpinner("Minting tokens...")
+		spin = ui.NewSpinner("Minting tokens...")
 		spin.Start()
 		raw, err := signer.SignTx(tx, big.NewInt(chainID))
 		if err != nil {
@@ -456,7 +472,10 @@ Examples:
 		}
 		client := chain.NewEVMClient(rpcURL)
 
-		// Get token decimals.
+		// ── Fetch on-chain data for preview ──────────────────────────────────
+		spin := ui.NewSpinner(fmt.Sprintf("Preparing burn on %s...", c.DisplayName))
+		spin.Start()
+
 		decimals := 18
 		if raw, err := client.CallContract(tokenContract, "0x313ce567"); err == nil && len(raw) >= 66 {
 			if d, ok := new(big.Int).SetString(strings.TrimPrefix(raw, "0x"), 16); ok {
@@ -467,6 +486,7 @@ Examples:
 		// Scale amount.
 		amtF, ok := new(big.Float).SetString(tokenAmount)
 		if !ok {
+			spin.Stop()
 			return fmt.Errorf("invalid amount %q", tokenAmount)
 		}
 		scale := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
@@ -477,6 +497,7 @@ Examples:
 
 		gasPrice, err := client.GasPrice()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		gasLimit, err := client.EstimateGas(w.Address, tokenContract, calldataHex, nil)
@@ -485,12 +506,15 @@ Examples:
 		}
 		chainID, err := client.ChainID()
 		if err != nil {
+			spin.Stop()
 			return err
 		}
 		nonce, err := client.GetNonce(w.Address)
 		if err != nil {
+			spin.Stop()
 			return err
 		}
+		spin.Stop()
 
 		fmt.Println(ui.KeyValueBlock(
 			fmt.Sprintf("Burn Preview · %s (%s)", c.DisplayName, cfg.NetworkMode),
@@ -525,7 +549,7 @@ Examples:
 		ks := wallet.DefaultKeystore()
 		signer := wallet.NewSigner(w, ks)
 
-		spin := ui.NewSpinner("Burning tokens...")
+		spin = ui.NewSpinner("Burning tokens...")
 		spin.Start()
 		raw, err := signer.SignTx(tx, big.NewInt(chainID))
 		if err != nil {

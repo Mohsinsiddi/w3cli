@@ -397,11 +397,6 @@ Examples:
 			return fmt.Errorf("unknown chain %q", network)
 		}
 
-		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
-		if err != nil {
-			return err
-		}
-
 		// ── Resolve wallet (needed for write functions) ───────────────────
 		walletName := contractStudioWallet
 		if walletName == "" {
@@ -417,11 +412,21 @@ Examples:
 			kind = "builtin:" + entry.BuiltinID
 		}
 
-		// Fetch token decimals so amount params show correct examples.
+		// ── Load contract data before showing the TUI ─────────────────────
+		// Spinner starts BEFORE pickBestRPC (which probes all RPC endpoints — up to 10 s).
+		loadSpin := ui.NewSpinner(fmt.Sprintf("Loading %s on %s...", contractName, c.DisplayName))
+		loadSpin.Start()
+
+		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
+		if err != nil {
+			loadSpin.Stop()
+			return err
+		}
+
 		client := chainpkg.NewEVMClient(rpcURL)
 		tokenDecimals := fetchTokenDecimals(client, entry.Address)
-
 		studioEntries := abiToStudioEntries(entry.ABI, tokenDecimals)
+		loadSpin.Stop()
 		funcCount := countFunctions(entry.ABI)
 		eventCount := 0
 		for _, e := range entry.ABI {
