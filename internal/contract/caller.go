@@ -101,6 +101,20 @@ func functionSelector(fn *ABIEntry) string {
 	return fn.Selector()
 }
 
+// EncodeCalldata builds ABI calldata for a function and returns both the
+// 0x-prefixed hex string (for eth_estimateGas) and the raw bytes (for tx Data).
+func EncodeCalldata(fn ABIEntry, args []string) (hexStr string, raw []byte, err error) {
+	hexStr, err = encodeCall(&fn, args)
+	if err != nil {
+		return
+	}
+	raw, err = hex.DecodeString(strings.TrimPrefix(hexStr, "0x"))
+	if err != nil {
+		err = fmt.Errorf("encoding calldata: %w", err)
+	}
+	return
+}
+
 // encodeParam encodes a single ABI parameter value as a 32-byte hex word.
 func encodeParam(typ, val string) (string, error) {
 	val = strings.TrimPrefix(val, "0x")
