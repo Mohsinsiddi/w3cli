@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -111,15 +110,12 @@ Examples:
 			walletName = cfg.DefaultWallet
 		}
 
-		store := wallet.NewJSONStore(filepath.Join(cfg.Dir(), "wallets.json"))
-		mgr := wallet.NewManager(wallet.WithStore(store))
-		w, err := mgr.Get(walletName)
+		w, _, err := loadSigningWallet(walletName)
 		if err != nil {
-			return fmt.Errorf("wallet %q not found", walletName)
+			return err
 		}
-		if w.Type != wallet.TypeSigning {
-			return fmt.Errorf("wallet %q is watch-only", walletName)
-		}
+
+		warnIfNoSession()
 
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
@@ -289,15 +285,12 @@ Examples:
 			walletName = cfg.DefaultWallet
 		}
 
-		store := wallet.NewJSONStore(filepath.Join(cfg.Dir(), "wallets.json"))
-		mgr := wallet.NewManager(wallet.WithStore(store))
-		w, err := mgr.Get(walletName)
+		w, mgr, err := loadSigningWallet(walletName)
 		if err != nil {
-			return fmt.Errorf("wallet %q not found", walletName)
+			return err
 		}
-		if w.Type != wallet.TypeSigning {
-			return fmt.Errorf("wallet %q is watch-only", walletName)
-		}
+
+		warnIfNoSession()
 
 		toAddress, err := resolveToAddress(tokenTo, mgr)
 		if err != nil {
@@ -445,20 +438,17 @@ Examples:
 			walletName = cfg.DefaultWallet
 		}
 
-		store := wallet.NewJSONStore(filepath.Join(cfg.Dir(), "wallets.json"))
-		mgr := wallet.NewManager(wallet.WithStore(store))
-		w, err := mgr.Get(walletName)
+		w, _, err := loadSigningWallet(walletName)
 		if err != nil {
-			return fmt.Errorf("wallet %q not found", walletName)
+			return err
 		}
-		if w.Type != wallet.TypeSigning {
-			return fmt.Errorf("wallet %q is watch-only", walletName)
-		}
+
+		warnIfNoSession()
 
 		reg := chain.NewRegistry()
 		c, err := reg.GetByName(chainName)
 		if err != nil {
-			return fmt.Errorf("unknown chain %q", chainName)
+			return fmt.Errorf("unknown chain %q — run `w3cli network list`", chainName)
 		}
 		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
 		if err != nil {

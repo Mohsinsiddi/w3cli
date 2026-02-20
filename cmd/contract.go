@@ -407,9 +407,9 @@ Examples:
 		if walletName == "" {
 			walletName = cfg.DefaultWallet
 		}
-		store := wallet.NewJSONStore(filepath.Join(cfg.Dir(), "wallets.json"))
-		mgr := wallet.NewManager(wallet.WithStore(store))
-		signerWallet, _ := mgr.Get(walletName) // nil if not found; checked on write
+		// Wallet is optional for the studio (read functions work without one).
+		// We load it here so write functions can sign immediately when selected.
+		signerWallet, _, _ := loadSigningWallet(walletName) // nil on error; checked on write
 
 		// ── Build studio entries ──────────────────────────────────────────
 		kind := entry.Kind
@@ -666,6 +666,8 @@ func studioExecuteWrite(
 	w *wallet.Wallet,
 	contractName, mode string,
 ) {
+	warnIfNoSession()
+
 	// Find the matching ABIEntry for EncodeCalldata
 	var abiEntry contract.ABIEntry
 	for _, e := range entry.ABI {

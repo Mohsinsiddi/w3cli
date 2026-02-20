@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -56,15 +55,12 @@ Examples:
 		}
 
 		// Load the signing wallet.
-		store := wallet.NewJSONStore(filepath.Join(cfg.Dir(), "wallets.json"))
-		mgr := wallet.NewManager(wallet.WithStore(store))
-		w, err := mgr.Get(walletName)
+		w, mgr, err := loadSigningWallet(walletName)
 		if err != nil {
-			return fmt.Errorf("wallet %q not found — run `w3cli wallet list` or set a default with `w3cli wallet use <name>`", walletName)
+			return err
 		}
-		if w.Type != wallet.TypeSigning {
-			return fmt.Errorf("wallet %q is watch-only and cannot sign transactions\n  To add a signing wallet: w3cli wallet add <name> --key <private-key>", walletName)
-		}
+
+		warnIfNoSession()
 
 		// Resolve --to as wallet name or raw address.
 		toAddress, err := resolveToAddress(sendTo, mgr)
