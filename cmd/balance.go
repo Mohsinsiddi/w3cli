@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/config"
 	"github.com/Mohsinsiddi/w3cli/internal/price"
 	"github.com/Mohsinsiddi/w3cli/internal/rpc"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
@@ -199,7 +200,7 @@ func pickBestRPC(c *chain.Chain, mode string) (string, error) {
 	if len(rpcs) == 1 {
 		return rpcs[0], nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.RPCSelectTimeout)
 	defer cancel()
 	return rpc.BestEVM(ctx, rpcs, rpc.Algorithm(cfg.RPCAlgorithm))
 }

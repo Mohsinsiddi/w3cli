@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/config"
 	"github.com/Mohsinsiddi/w3cli/internal/contract"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/Mohsinsiddi/w3cli/internal/wallet"
@@ -147,7 +148,7 @@ Examples:
 		}
 		gasLimit, err := client.EstimateGas(w.Address, "", deployHex, nil)
 		if err != nil {
-			gasLimit = 1_500_000
+			gasLimit = config.GasLimitTokenDeploy
 		}
 
 		chainID, err := client.ChainID()
@@ -213,7 +214,7 @@ Examples:
 		// ── Wait for receipt ──────────────────────────────────────────────────
 		spin = ui.NewSpinner("Waiting for deployment confirmation...")
 		spin.Start()
-		receipt, err := client.WaitForReceipt(hash, 5*time.Minute)
+		receipt, err := client.WaitForReceipt(hash, config.TxDeployTimeout)
 		spin.Stop()
 		if err != nil {
 			return fmt.Errorf("deploy tx %s: %w", hash, err)
@@ -346,7 +347,7 @@ Examples:
 		}
 		gasLimit, err := client.EstimateGas(w.Address, tokenContract, calldataHex, nil)
 		if err != nil {
-			gasLimit = 80_000
+			gasLimit = config.GasLimitERC20Mint
 		}
 		chainID, err := client.ChainID()
 		if err != nil {
@@ -408,7 +409,7 @@ Examples:
 
 		spin = ui.NewSpinner("Waiting for confirmation...")
 		spin.Start()
-		receipt, err := client.WaitForReceipt(hash, 3*time.Minute)
+		receipt, err := client.WaitForReceipt(hash, config.TxConfirmTimeout)
 		spin.Stop()
 		if err != nil {
 			return fmt.Errorf("tx %s: %w", hash, err)
@@ -502,7 +503,7 @@ Examples:
 		}
 		gasLimit, err := client.EstimateGas(w.Address, tokenContract, calldataHex, nil)
 		if err != nil {
-			gasLimit = 60_000
+			gasLimit = config.GasLimitERC20Transfer
 		}
 		chainID, err := client.ChainID()
 		if err != nil {
@@ -564,7 +565,7 @@ Examples:
 
 		spin = ui.NewSpinner("Waiting for confirmation...")
 		spin.Start()
-		receipt, err := client.WaitForReceipt(hash, 3*time.Minute)
+		receipt, err := client.WaitForReceipt(hash, config.TxConfirmTimeout)
 		spin.Stop()
 		if err != nil {
 			return fmt.Errorf("tx %s: %w", hash, err)

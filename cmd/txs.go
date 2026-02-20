@@ -59,9 +59,12 @@ Examples:
 		apiKey := cfg.GetExplorerAPIKey(chainName)
 
 		provReg := providers.BuildRegistry(chainName, c, networkMode, rpcURL, cfg)
-		result, _ := provReg.GetTransactions(address, txsLast)
+		result, getErr := provReg.GetTransactions(address, txsLast)
 
 		spin.Stop()
+		if getErr != nil {
+			return fmt.Errorf("fetching transactions: %w", getErr)
+		}
 
 		// Print any non-fatal provider warnings.
 		for _, w := range result.Warnings {

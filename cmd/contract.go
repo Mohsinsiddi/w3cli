@@ -6,9 +6,9 @@ import (
 	"math/big"
 	"path/filepath"
 	"strings"
-	"time"
 
 	chainpkg "github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/config"
 	"github.com/Mohsinsiddi/w3cli/internal/contract"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/Mohsinsiddi/w3cli/internal/wallet"
@@ -696,7 +696,7 @@ func studioExecuteWrite(
 
 	gasLimit, err := client.EstimateGas(w.Address, entry.Address, calldataHex, nil)
 	if err != nil {
-		gasLimit = 200_000 // safe fallback
+		gasLimit = config.GasLimitContractCall // safe fallback
 	}
 
 	chainID, err := client.ChainID()
@@ -780,7 +780,7 @@ func studioExecuteWrite(
 	// ── Wait for receipt ──────────────────────────────────────────────────
 	spin = ui.NewSpinner(fmt.Sprintf("Waiting for %s() to be mined...", fn.Name))
 	spin.Start()
-	receipt, err := client.WaitForReceipt(hash, 3*time.Minute)
+	receipt, err := client.WaitForReceipt(hash, config.TxConfirmTimeout)
 	spin.Stop()
 
 	explorer := c.Explorer(mode)

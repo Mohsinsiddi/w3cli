@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/Mohsinsiddi/w3cli/internal/chain"
+	"github.com/Mohsinsiddi/w3cli/internal/config"
 	"github.com/Mohsinsiddi/w3cli/internal/ui"
 	"github.com/Mohsinsiddi/w3cli/internal/wallet"
 	"github.com/ethereum/go-ethereum/common"
@@ -130,7 +130,7 @@ Examples:
 
 		gasLimit, err := client.EstimateGas(w.Address, toAddress, "", valueWei)
 		if err != nil {
-			gasLimit = 21000
+			gasLimit = config.GasLimitETHTransfer
 		}
 
 		fmt.Println(ui.KeyValueBlock(
@@ -180,7 +180,7 @@ Examples:
 
 		spin = ui.NewSpinner("Waiting for confirmation...")
 		spin.Start()
-		receipt, err := client.WaitForReceipt(hash, 3*time.Minute)
+		receipt, err := client.WaitForReceipt(hash, config.TxConfirmTimeout)
 		spin.Stop()
 		if err != nil {
 			return fmt.Errorf("tx %s: %w", hash, err)
@@ -242,7 +242,7 @@ func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, toke
 
 	gasLimit, err := client.EstimateGas(from, tokenAddr, calldataHex, nil)
 	if err != nil {
-		gasLimit = 60000
+		gasLimit = config.GasLimitERC20Transfer
 	}
 	spin.Stop()
 
@@ -290,7 +290,7 @@ func runTokenSend(client *chain.EVMClient, signer *wallet.Signer, from, to, toke
 
 	spin = ui.NewSpinner("Waiting for confirmation...")
 	spin.Start()
-	receipt, err := client.WaitForReceipt(hash, 3*time.Minute)
+	receipt, err := client.WaitForReceipt(hash, config.TxConfirmTimeout)
 	spin.Stop()
 	if err != nil {
 		return fmt.Errorf("tx %s: %w", hash, err)

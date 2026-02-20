@@ -26,13 +26,13 @@ var (
 
 // Wallet holds metadata for a single wallet.
 type Wallet struct {
-	Name      string
-	Address   string
-	Type      string
-	KeyRef    string // keychain service key for signing wallets
-	ChainType string // "evm" | "solana" | "sui"
-	IsDefault bool
-	CreatedAt string
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Type      string `json:"type"`
+	KeyRef    string `json:"key_ref,omitempty"`  // keychain service key for signing wallets
+	ChainType string `json:"chain_type,omitempty"` // "evm" | "solana" | "sui"
+	IsDefault bool   `json:"is_default"`
+	CreatedAt string `json:"created_at"`
 }
 
 // Store is an interface for persisting wallets.
