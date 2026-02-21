@@ -9,7 +9,8 @@ const (
 	GasLimitERC20Transfer = uint64(60_000)    // ERC-20 transfer or burn
 	GasLimitERC20Mint     = uint64(80_000)    // ERC-20 mint
 	GasLimitContractCall  = uint64(200_000)   // generic contract state-change call
-	GasLimitTokenDeploy   = uint64(1_500_000) // full ERC-20 contract deployment
+	GasLimitTokenDeploy      = uint64(1_500_000) // full ERC-20 contract deployment
+	GasLimitContractDeploy   = uint64(3_000_000) // generic contract deployment (user artifact)
 )
 
 // Timeout constants used across cmd and future server packages.

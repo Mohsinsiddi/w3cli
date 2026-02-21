@@ -148,6 +148,166 @@ func encodeParam(typ, val string) (string, error) {
 	}
 }
 
+// ── Constructor encoding (for contract deploy) ──────────────────────────────
+
+// EncodeConstructorArgs ABI-encodes constructor arguments and returns the raw
+// bytes (no 4-byte selector — constructors don't have one). The result is
+// appended directly to the deployment bytecode.
+func EncodeConstructorArgs(params []ABIParam, args []string) ([]byte, error) {
+	if len(params) != len(args) {
+		return nil, fmt.Errorf("constructor expects %d args, got %d", len(params), len(args))
+	}
+	if len(params) == 0 {
+		return nil, nil
+	}
+
+	// Check for unsupported types (v1 limitation).
+	for _, p := range params {
+		if strings.Contains(p.Type, "[") || strings.Contains(p.Type, "tuple") {
+			return nil, fmt.Errorf("constructor param %q has type %q — array and tuple types are not yet supported", p.Name, p.Type)
+		}
+	}
+
+	// Head section: 32 bytes per param (static value or offset for dynamic).
+	// Tail section: variable-length data for dynamic types.
+	nParams := len(params)
+	head := make([]byte, 0, nParams*32)
+	tail := make([]byte, 0)
+
+	for i, p := range params {
+		if isDynamicType(p.Type) {
+			// Write offset (from start of encoding) to tail data.
+			offset := uint64(nParams*32) + uint64(len(tail))
+			head = appendUint256Big(head, new(big.Int).SetUint64(offset))
+			// Encode dynamic data into tail.
+			dynData, err := encodeDynamicParam(p.Type, args[i])
+			if err != nil {
+				return nil, fmt.Errorf("encoding constructor param %q (%s): %w", p.Name, p.Type, err)
+			}
+			tail = append(tail, dynData...)
+		} else {
+			// Static: encode directly into head.
+			enc, err := encodeStaticParam(p.Type, args[i])
+			if err != nil {
+				return nil, fmt.Errorf("encoding constructor param %q (%s): %w", p.Name, p.Type, err)
+			}
+			head = append(head, enc...)
+		}
+	}
+
+	return append(head, tail...), nil
+}
+
+// isDynamicType returns true for ABI types that use head/tail encoding.
+func isDynamicType(typ string) bool {
+	return typ == "string" || typ == "bytes"
+}
+
+// encodeStaticParam encodes a single static ABI value as exactly 32 bytes.
+func encodeStaticParam(typ, val string) ([]byte, error) {
+	switch {
+	case typ == "address":
+		v := strings.TrimPrefix(strings.TrimSpace(val), "0x")
+		b, err := hex.DecodeString(v)
+		if err != nil || len(b) != 20 {
+			return nil, fmt.Errorf("invalid address %q", val)
+		}
+		word := make([]byte, 32)
+		copy(word[12:], b)
+		return word, nil
+
+	case strings.HasPrefix(typ, "uint") || strings.HasPrefix(typ, "int"):
+		n := new(big.Int)
+		if _, ok := n.SetString(strings.TrimSpace(val), 0); !ok {
+			return nil, fmt.Errorf("invalid integer %q", val)
+		}
+		return padInt256(n), nil
+
+	case typ == "bool":
+		v := strings.ToLower(strings.TrimSpace(val))
+		word := make([]byte, 32)
+		if v == "true" || v == "1" {
+			word[31] = 1
+		} else if v != "false" && v != "0" {
+			return nil, fmt.Errorf("invalid bool %q", val)
+		}
+		return word, nil
+
+	case typ == "bytes32":
+		v := strings.TrimPrefix(strings.TrimSpace(val), "0x")
+		b, err := hex.DecodeString(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bytes32 %q", val)
+		}
+		word := make([]byte, 32)
+		copy(word, b) // right-padded
+		return word, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported static type %q", typ)
+	}
+}
+
+// encodeDynamicParam encodes a dynamic ABI value (string or bytes) as
+// length-prefixed data padded to 32-byte boundaries.
+func encodeDynamicParam(typ, val string) ([]byte, error) {
+	switch typ {
+	case "string":
+		return encodeBytesData([]byte(val)), nil
+	case "bytes":
+		v := strings.TrimPrefix(strings.TrimSpace(val), "0x")
+		b, err := hex.DecodeString(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bytes hex %q", val)
+		}
+		return encodeBytesData(b), nil
+	default:
+		return nil, fmt.Errorf("unsupported dynamic type %q", typ)
+	}
+}
+
+// encodeBytesData returns ABI-encoded bytes/string data:
+// 32-byte length prefix + data padded to next 32-byte boundary.
+func encodeBytesData(data []byte) []byte {
+	length := len(data)
+	padded := roundUp32Bytes(length)
+	out := make([]byte, 32+padded)
+	// Length prefix.
+	big.NewInt(int64(length)).FillBytes(out[:32])
+	// Data.
+	copy(out[32:], data)
+	return out
+}
+
+// appendUint256Big appends a big.Int as a 32-byte big-endian word.
+func appendUint256Big(buf []byte, n *big.Int) []byte {
+	word := make([]byte, 32)
+	n.FillBytes(word)
+	return append(buf, word...)
+}
+
+// padInt256 returns a big.Int as a 32-byte word (two's complement for negatives).
+func padInt256(n *big.Int) []byte {
+	word := make([]byte, 32)
+	if n.Sign() >= 0 {
+		n.FillBytes(word)
+	} else {
+		// Two's complement: 2^256 + n
+		mod := new(big.Int).Lsh(big.NewInt(1), 256)
+		pos := new(big.Int).Add(mod, n)
+		pos.FillBytes(word)
+	}
+	return word
+}
+
+// roundUp32Bytes rounds n up to the next multiple of 32.
+func roundUp32Bytes(n int) int {
+	if n%32 == 0 {
+		return n
+	}
+	return n + (32 - n%32)
+}
+
 // decodeResult decodes the raw hex result into string values.
 func decodeResult(fn *ABIEntry, hexData string) ([]string, error) {
 	data, err := hex.DecodeString(strings.TrimPrefix(hexData, "0x"))

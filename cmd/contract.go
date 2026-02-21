@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"strings"
+	"time"
 
 	chainpkg "github.com/Mohsinsiddi/w3cli/internal/chain"
 	"github.com/Mohsinsiddi/w3cli/internal/config"
@@ -25,11 +26,17 @@ var tokenAmountFunctions = map[string]bool{
 }
 
 var (
-	contractABIFile    string
-	contractBuiltin    string // --builtin <id>
-	contractFetchABI   bool
-	contractNetwork    string
+	contractABIFile      string
+	contractBuiltin      string // --builtin <id>
+	contractFetchABI     bool
+	contractNetwork      string
 	contractStudioWallet string
+
+	// deploy flags
+	contractDeployArgs   string // --args (comma-separated constructor args)
+	contractDeployValue  string // --value (ETH to send for payable constructors)
+	contractDeployGas    uint64 // --gas (gas limit override)
+	contractDeployWallet string // --wallet (signing wallet)
 )
 
 var contractCmd = &cobra.Command{
@@ -831,6 +838,276 @@ func studioExecuteWrite(
 	ui.OpenURL(explorer + "/tx/" + hash)
 }
 
+// ── contract deploy ────────────────────────────────────────────────────────────
+
+var contractDeployCmd = &cobra.Command{
+	Use:   "deploy <name> <artifact-path>",
+	Short: "Deploy a compiled contract from a Hardhat/Foundry artifact",
+	Long: `Deploy a smart contract directly from a compiled artifact JSON file.
+
+The artifact must contain both an ABI and bytecode (Hardhat or Foundry format).
+After deployment the contract is auto-registered so "contract studio" works immediately.
+
+Constructor args can be supplied with --args (comma-separated) or interactively.
+
+Examples:
+  w3cli contract deploy MyNFT ./artifacts/MyNFT.json --network base --wallet deployer
+  w3cli contract deploy Token ./out/Token.sol/Token.json --args "MyToken,MTK,18,1000000"
+  w3cli contract deploy Vault ./artifacts/Vault.json --network sepolia`,
+	Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		contractName := args[0]
+		artifactPath := args[1]
+
+		// ── 1. Load artifact → ABI + bytecode ──────────────────────────────
+		artifact, err := contract.LoadArtifactFull(artifactPath)
+		if err != nil {
+			return err
+		}
+
+		// ── 2. Find constructor in ABI ─────────────────────────────────────
+		var constructor *contract.ABIEntry
+		for i := range artifact.ABI {
+			if artifact.ABI[i].Type == "constructor" {
+				constructor = &artifact.ABI[i]
+				break
+			}
+		}
+
+		// ── 3. Collect constructor args ────────────────────────────────────
+		var constructorInputs []string
+		if constructor != nil && len(constructor.Inputs) > 0 {
+			if contractDeployArgs != "" {
+				// Parse comma-separated args from --args flag.
+				constructorInputs = strings.Split(contractDeployArgs, ",")
+				if len(constructorInputs) != len(constructor.Inputs) {
+					return fmt.Errorf("constructor expects %d args, got %d from --args",
+						len(constructor.Inputs), len(constructorInputs))
+				}
+				// Trim whitespace.
+				for i := range constructorInputs {
+					constructorInputs[i] = strings.TrimSpace(constructorInputs[i])
+				}
+			} else {
+				// Interactive prompts using existing collectStudioInputs.
+				fmt.Println(ui.StyleTitle.Render(fmt.Sprintf("  Constructor · %s", contractName)))
+				fmt.Println()
+				params := make([]ui.StudioParam, len(constructor.Inputs))
+				for i, p := range constructor.Inputs {
+					params[i] = ui.StudioParam{
+						Name:    p.Name,
+						Type:    p.Type,
+						Example: abiTypeExample(p.Type),
+					}
+				}
+				constructorInputs, err = collectStudioInputs(params)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// ── 4. Encode constructor args ─────────────────────────────────────
+		var encodedArgs []byte
+		if constructor != nil && len(constructor.Inputs) > 0 {
+			encodedArgs, err = contract.EncodeConstructorArgs(constructor.Inputs, constructorInputs)
+			if err != nil {
+				return err
+			}
+		}
+
+		// ── 5. Build deploy data: bytecode + encodedArgs ───────────────────
+		deployData := make([]byte, len(artifact.Bytecode)+len(encodedArgs))
+		copy(deployData, artifact.Bytecode)
+		copy(deployData[len(artifact.Bytecode):], encodedArgs)
+
+		deployHex := "0x" + hex.EncodeToString(deployData)
+
+		// ── 6. Resolve chain + wallet ──────────────────────────────────────
+		chainName := contractNetwork
+		if chainName == "" {
+			chainName = cfg.DefaultNetwork
+		}
+		walletName := contractDeployWallet
+		if walletName == "" {
+			walletName = cfg.DefaultWallet
+		}
+
+		w, _, err := loadSigningWallet(walletName)
+		if err != nil {
+			return err
+		}
+
+		warnIfNoSession()
+
+		reg := chainpkg.NewRegistry()
+		c, err := reg.GetByName(chainName)
+		if err != nil {
+			return fmt.Errorf("unknown chain %q — run `w3cli network list`", chainName)
+		}
+
+		rpcURL, err := pickBestRPC(c, cfg.NetworkMode)
+		if err != nil {
+			return err
+		}
+		client := chainpkg.NewEVMClient(rpcURL)
+
+		// ── 7. Fetch gas, chainID, nonce ───────────────────────────────────
+		spin := ui.NewSpinner(fmt.Sprintf("Preparing deployment on %s...", c.DisplayName))
+		spin.Start()
+
+		gasPrice, err := client.GasPrice()
+		if err != nil {
+			spin.Stop()
+			return err
+		}
+
+		gasLimit := contractDeployGas
+		if gasLimit == 0 {
+			gasLimit, err = client.EstimateGas(w.Address, "", deployHex, nil)
+			if err != nil {
+				gasLimit = config.GasLimitContractDeploy
+			}
+		}
+
+		chainID, err := client.ChainID()
+		if err != nil {
+			spin.Stop()
+			return err
+		}
+		nonce, err := client.GetPendingNonce(w.Address)
+		if err != nil {
+			spin.Stop()
+			return err
+		}
+		spin.Stop()
+
+		// ── 8. Preview ─────────────────────────────────────────────────────
+		pairs := [][2]string{
+			{"Deployer", ui.Addr(w.Address)},
+			{"Contract", contractName},
+			{"Artifact", artifactPath},
+		}
+		if constructor != nil {
+			for i, p := range constructor.Inputs {
+				lbl := p.Name
+				if lbl == "" {
+					lbl = fmt.Sprintf("arg%d", i)
+				}
+				if i < len(constructorInputs) {
+					pairs = append(pairs, [2]string{lbl, constructorInputs[i]})
+				}
+			}
+		}
+
+		// Parse --value for payable constructors.
+		valueBig := big.NewInt(0)
+		if contractDeployValue != "" {
+			f, ok := new(big.Float).SetString(contractDeployValue)
+			if !ok {
+				return fmt.Errorf("invalid --value %q", contractDeployValue)
+			}
+			// Convert ETH to wei.
+			weiF := new(big.Float).Mul(f, new(big.Float).SetInt(
+				new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
+			valueBig, _ = weiF.Int(nil)
+			pairs = append(pairs, [2]string{"Value", contractDeployValue + " ETH"})
+		}
+
+		pairs = append(pairs,
+			[2]string{"Gas Limit", fmt.Sprintf("%d", gasLimit)},
+			[2]string{"Gas Price", fmt.Sprintf("%d Gwei", toGwei(gasPrice))},
+			[2]string{"Network", fmt.Sprintf("%s (%s)", c.DisplayName, cfg.NetworkMode)},
+		)
+
+		fmt.Println(ui.KeyValueBlock(
+			fmt.Sprintf("Contract Deploy Preview · %s (%s)", c.DisplayName, cfg.NetworkMode), pairs))
+
+		// ── 9. Confirm ─────────────────────────────────────────────────────
+		if !ui.Confirm("Deploy this contract?") {
+			fmt.Println(ui.Meta("Cancelled."))
+			return nil
+		}
+
+		// ── 10. Sign + broadcast ───────────────────────────────────────────
+		spin = ui.NewSpinner("Deploying contract...")
+		spin.Start()
+
+		tx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   big.NewInt(chainID),
+			Nonce:     nonce,
+			GasTipCap: gasPrice,
+			GasFeeCap: new(big.Int).Mul(gasPrice, big.NewInt(2)),
+			Gas:       gasLimit,
+			To:        nil, // contract creation
+			Value:     valueBig,
+			Data:      deployData,
+		})
+
+		ks := wallet.DefaultKeystore()
+		signer := wallet.NewSigner(w, ks)
+		raw, err := signer.SignTx(tx, big.NewInt(chainID))
+		if err != nil {
+			spin.Stop()
+			return err
+		}
+
+		hash, err := client.SendRawTransaction("0x" + hex.EncodeToString(raw))
+		spin.Stop()
+		if err != nil {
+			return err
+		}
+
+		// ── 11. Wait for receipt ───────────────────────────────────────────
+		spin = ui.NewSpinner("Waiting for deployment confirmation...")
+		spin.Start()
+		receipt, err := client.WaitForReceipt(hash, config.TxDeployTimeout)
+		spin.Stop()
+		if err != nil {
+			return fmt.Errorf("deploy tx %s: %w", hash, err)
+		}
+
+		// ── 12. Show result ────────────────────────────────────────────────
+		explorer := c.Explorer(cfg.NetworkMode)
+		fmt.Println()
+		fmt.Println(ui.KeyValueBlock("Contract Deployed ✓", [][2]string{
+			{"Contract", ui.Addr(receipt.ContractAddress)},
+			{"Tx Hash", ui.Addr(hash)},
+			{"Block", fmt.Sprintf("%d", receipt.BlockNumber)},
+			{"Gas Used", fmt.Sprintf("%d", receipt.GasUsed)},
+			{"Name", contractName},
+			{"Deployer", ui.Addr(w.Address)},
+			{"Explorer", explorer + "/address/" + receipt.ContractAddress},
+		}))
+
+		// ── 13. Auto-register in contract registry ─────────────────────────
+		contractReg := newContractRegistry()
+		if loadErr := contractReg.Load(); loadErr == nil {
+			contractReg.Add(&contract.Entry{
+				Name:       contractName,
+				Network:    chainName,
+				Address:    receipt.ContractAddress,
+				ABI:        artifact.ABI,
+				Kind:       "deployed",
+				ABISource:  artifactPath,
+				Deployer:   w.Address,
+				TxHash:     hash,
+				DeployedAt: time.Now().UTC().Format(time.RFC3339),
+			})
+			if saveErr := contractReg.Save(); saveErr == nil {
+				fmt.Println(ui.Success(fmt.Sprintf(
+					"Registered in contract studio as %q — use: w3cli contract studio %s",
+					contractName, contractName)))
+			}
+		}
+
+		fmt.Println(ui.Hint(fmt.Sprintf(
+			"Interact: w3cli contract studio %s --network %s", contractName, chainName)))
+		ui.OpenURL(explorer + "/address/" + receipt.ContractAddress)
+		return nil
+	},
+}
+
 // ── init ──────────────────────────────────────────────────────────────────────
 
 func init() {
@@ -857,6 +1134,13 @@ func init() {
 	// remove
 	contractRemoveCmd.Flags().StringVar(&contractNetwork, "network", "", "chain (default: config)")
 
+	// deploy
+	contractDeployCmd.Flags().StringVar(&contractDeployArgs, "args", "", "comma-separated constructor args")
+	contractDeployCmd.Flags().StringVar(&contractDeployValue, "value", "", "ETH value to send (for payable constructors)")
+	contractDeployCmd.Flags().Uint64Var(&contractDeployGas, "gas", 0, "gas limit override (0 = auto-estimate)")
+	contractDeployCmd.Flags().StringVar(&contractDeployWallet, "wallet", "", "signing wallet (default: config)")
+	contractDeployCmd.Flags().StringVar(&contractNetwork, "network", "", "chain (default: config)")
+
 	contractCmd.AddCommand(
 		contractAddCmd,
 		contractImportCmd,
@@ -866,6 +1150,7 @@ func init() {
 		contractCallCmd,
 		contractSyncCmd,
 		contractStudioCmd,
+		contractDeployCmd,
 	)
 }
 
