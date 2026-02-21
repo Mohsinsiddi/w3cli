@@ -251,6 +251,36 @@ var contractListCmd = &cobra.Command{
 	},
 }
 
+// ── contract remove ──────────────────────────────────────────────────────────
+
+var contractRemoveCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "Remove a registered contract",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+		network := contractNetwork
+		if network == "" {
+			network = cfg.DefaultNetwork
+		}
+
+		reg := newContractRegistry()
+		if err := reg.Load(); err != nil {
+			return err
+		}
+
+		if err := reg.Remove(name, network); err != nil {
+			return err
+		}
+		if err := reg.Save(); err != nil {
+			return err
+		}
+
+		fmt.Println(ui.Success(fmt.Sprintf("Removed contract %q from %s", name, network)))
+		return nil
+	},
+}
+
 // ── contract call ─────────────────────────────────────────────────────────────
 
 var contractCallCmd = &cobra.Command{
@@ -824,11 +854,15 @@ func init() {
 	// sync
 	contractSyncCmd.Flags().Bool("all", false, "sync all contracts")
 
+	// remove
+	contractRemoveCmd.Flags().StringVar(&contractNetwork, "network", "", "chain (default: config)")
+
 	contractCmd.AddCommand(
 		contractAddCmd,
 		contractImportCmd,
 		contractBuiltinsCmd,
 		contractListCmd,
+		contractRemoveCmd,
 		contractCallCmd,
 		contractSyncCmd,
 		contractStudioCmd,

@@ -112,11 +112,16 @@ w3cli watch                                      # Stream live transactions
 Interactive TUI for reading and writing smart contract functions.
 
 ```bash
-w3cli contract add MyToken 0xADDR --abi ./abi.json  # Register with local ABI
+w3cli contract add MyToken 0xADDR --abi ./abi.json  # Register with local ABI (raw or Hardhat/Foundry artifact)
 w3cli contract add MyToken 0xADDR --fetch            # Auto-fetch ABI from explorer
+w3cli contract add MyToken 0xADDR --builtin erc20    # Use bundled ABI
 w3cli contract list                                   # List registered contracts
+w3cli contract remove MyToken                         # Remove a contract
+w3cli contract builtins                               # List bundled ABIs
 w3cli contract studio MyToken                         # Interactive TUI
 ```
+
+The `--abi` flag accepts both **raw ABI JSON arrays** and **Hardhat/Foundry artifact files** (auto-detected). Invalid formats, empty ABIs, and non-ABI JSON objects are rejected with clear error messages.
 
 The studio auto-detects function types, shows parameter hints with examples, scales token amounts by decimals, and provides a full sign-preview-broadcast flow for write functions.
 
