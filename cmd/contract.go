@@ -584,23 +584,49 @@ func collectStudioInputs(params []ui.StudioParam) ([]string, error) {
 }
 
 // scaleTokenInput parses a human decimal (e.g. "1.5") and returns
-// the raw uint256 value scaled by 10^decimals.
+// the raw uint256 value scaled by 10^decimals using exact string-based
+// arithmetic — no floating-point loss.
 func scaleTokenInput(val string, decimals int) (*big.Int, string) {
 	val = strings.TrimSpace(val)
 	if val == "" {
 		return nil, "value cannot be empty"
 	}
-	f, ok := new(big.Float).SetPrec(256).SetString(val)
-	if !ok || f.Sign() < 0 {
-		return nil, fmt.Sprintf("invalid amount %q — enter a non-negative number (e.g. 1.5)", val)
-	}
-	scale := new(big.Float).SetInt(
-		new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
-	scaled := new(big.Float).Mul(f, scale)
-	result, accuracy := scaled.Int(nil)
-	_ = accuracy
-	if result.Sign() < 0 {
+
+	// Reject negative values.
+	if strings.HasPrefix(val, "-") {
 		return nil, "amount must be non-negative"
+	}
+
+	// Split on decimal point.
+	parts := strings.SplitN(val, ".", 2)
+	wholePart := parts[0]
+	fracPart := ""
+	if len(parts) == 2 {
+		fracPart = parts[1]
+	}
+
+	if wholePart == "" {
+		wholePart = "0"
+	}
+
+	// Truncate or pad fractional part to exactly `decimals` digits.
+	if len(fracPart) > decimals {
+		fracPart = fracPart[:decimals]
+	}
+	for len(fracPart) < decimals {
+		fracPart += "0"
+	}
+
+	// Combine: whole + frac → parse as integer.
+	raw := wholePart + fracPart
+	raw = strings.TrimLeft(raw, "0")
+	if raw == "" {
+		raw = "0"
+	}
+
+	result, ok := new(big.Int).SetString(raw, 10)
+	if !ok {
+		return nil, fmt.Sprintf("invalid amount %q — enter a non-negative number (e.g. 1.5)", val)
 	}
 	return result, ""
 }
@@ -754,7 +780,7 @@ func studioExecuteWrite(
 		return
 	}
 
-	gasLimit, err := client.EstimateGas(w.Address, entry.Address, calldataHex, nil)
+	gasLimit, err := client.EstimateGas(w.Address, entry.Address, calldataHex, valueBig)
 	if err != nil {
 		gasLimit = config.GasLimitContractCall // safe fallback
 	}
@@ -978,7 +1004,17 @@ Examples:
 		}
 		client := chainpkg.NewEVMClient(rpcURL)
 
-		// ── 7. Fetch gas, chainID, nonce ───────────────────────────────────
+		// ── 7. Parse --value early (needed for gas estimation) ────────────
+		valueBig := big.NewInt(0)
+		if contractDeployValue != "" {
+			parsed, err := ethToWei(contractDeployValue)
+			if err != nil {
+				return fmt.Errorf("invalid --value %q: %w", contractDeployValue, err)
+			}
+			valueBig = parsed
+		}
+
+		// ── 8. Fetch gas, chainID, nonce ───────────────────────────────────
 		spin := ui.NewSpinner(fmt.Sprintf("Preparing deployment on %s...", c.DisplayName))
 		spin.Start()
 
@@ -990,7 +1026,7 @@ Examples:
 
 		gasLimit := contractDeployGas
 		if gasLimit == 0 {
-			gasLimit, err = client.EstimateGas(w.Address, "", deployHex, nil)
+			gasLimit, err = client.EstimateGas(w.Address, "", deployHex, valueBig)
 			if err != nil {
 				gasLimit = config.GasLimitContractDeploy
 			}
@@ -1008,7 +1044,7 @@ Examples:
 		}
 		spin.Stop()
 
-		// ── 8. Preview ─────────────────────────────────────────────────────
+		// ── 9. Preview ─────────────────────────────────────────────────────
 		pairs := [][2]string{
 			{"Deployer", ui.Addr(w.Address)},
 			{"Contract", contractName},
@@ -1026,14 +1062,7 @@ Examples:
 			}
 		}
 
-		// Parse --value for payable constructors.
-		valueBig := big.NewInt(0)
 		if contractDeployValue != "" {
-			parsed, err := ethToWei(contractDeployValue)
-			if err != nil {
-				return fmt.Errorf("invalid --value %q: %w", contractDeployValue, err)
-			}
-			valueBig = parsed
 			pairs = append(pairs, [2]string{"Value", contractDeployValue + " ETH"})
 		}
 

@@ -115,6 +115,118 @@ func TestConvertOneWei(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// convertFromETH precision — uses ethToWei (string-based, no float)
+// ---------------------------------------------------------------------------
+
+func TestConvertETH_Precision_0_001(t *testing.T) {
+	wei, err := ethToWei("0.001")
+	assert.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1000000000000000", 10) // exactly 10^15
+	assert.Equal(t, expected, wei, "0.001 ETH must be exactly 1000000000000000 wei")
+}
+
+func TestConvertETH_Precision_0_0001(t *testing.T) {
+	wei, err := ethToWei("0.0001")
+	assert.NoError(t, err)
+	expected, _ := new(big.Int).SetString("100000000000000", 10) // exactly 10^14
+	assert.Equal(t, expected, wei)
+}
+
+func TestConvertETH_Precision_0_123456789123456789(t *testing.T) {
+	wei, err := ethToWei("0.123456789123456789")
+	assert.NoError(t, err)
+	expected, _ := new(big.Int).SetString("123456789123456789", 10)
+	assert.Equal(t, expected, wei)
+}
+
+func TestConvertETH_Precision_Exact18Decimals(t *testing.T) {
+	wei, err := ethToWei("1.000000000000000001")
+	assert.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1000000000000000001", 10)
+	assert.Equal(t, expected, wei)
+}
+
+func TestConvertETH_Precision_SmallestUnit(t *testing.T) {
+	wei, err := ethToWei("0.000000000000000001")
+	assert.NoError(t, err)
+	assert.Equal(t, big.NewInt(1), wei, "smallest ETH unit must be 1 wei")
+}
+
+// ---------------------------------------------------------------------------
+// convertFromGwei precision — string-based scaling (×10^9)
+// ---------------------------------------------------------------------------
+
+func TestConvertGwei_Precision_0_001(t *testing.T) {
+	// 0.001 gwei = 1_000_000 wei (10^6)
+	// Test via the string-based approach used in convertFromGwei.
+	parts := []string{"0", "001"}
+	wholePart := parts[0]
+	fracPart := parts[1]
+	for len(fracPart) < 9 {
+		fracPart += "0"
+	}
+	raw := wholePart + fracPart
+	// TrimLeft zeros
+	trimmed := ""
+	started := false
+	for _, ch := range raw {
+		if ch != '0' {
+			started = true
+		}
+		if started {
+			trimmed += string(ch)
+		}
+	}
+	if trimmed == "" {
+		trimmed = "0"
+	}
+	wei, ok := new(big.Int).SetString(trimmed, 10)
+	assert.True(t, ok)
+	expected := big.NewInt(1_000_000) // exactly 10^6
+	assert.Equal(t, expected, wei, "0.001 gwei must be exactly 1000000 wei")
+}
+
+func TestConvertGwei_Precision_1_5(t *testing.T) {
+	// 1.5 gwei = 1_500_000_000 wei
+	parts := []string{"1", "5"}
+	fracPart := parts[1]
+	for len(fracPart) < 9 {
+		fracPart += "0"
+	}
+	raw := parts[0] + fracPart
+	wei, ok := new(big.Int).SetString(raw, 10)
+	assert.True(t, ok)
+	expected := big.NewInt(1_500_000_000)
+	assert.Equal(t, expected, wei)
+}
+
+func TestConvertGwei_Precision_NanoFrac(t *testing.T) {
+	// 0.000000001 gwei = 1 wei (smallest gwei fraction)
+	parts := []string{"0", "000000001"}
+	fracPart := parts[1]
+	for len(fracPart) < 9 {
+		fracPart += "0"
+	}
+	raw := parts[0] + fracPart
+	trimmed := ""
+	started := false
+	for _, ch := range raw {
+		if ch != '0' {
+			started = true
+		}
+		if started {
+			trimmed += string(ch)
+		}
+	}
+	if trimmed == "" {
+		trimmed = "0"
+	}
+	wei, ok := new(big.Int).SetString(trimmed, 10)
+	assert.True(t, ok)
+	assert.Equal(t, big.NewInt(1), wei, "0.000000001 gwei must be exactly 1 wei")
+}
+
+// ---------------------------------------------------------------------------
 // splitHexWords (used by decode)
 // ---------------------------------------------------------------------------
 

@@ -428,6 +428,74 @@ func TestScaleTokenInputNegative(t *testing.T) {
 	assert.NotEmpty(t, errMsg)
 }
 
+// -- Precision edge cases (string-based, no float loss) --
+
+func TestScaleTokenInputExactOneThousandth18(t *testing.T) {
+	// 0.001 with 18 decimals must be exactly 1e15 — this was a bug with big.Float.
+	result, errMsg := scaleTokenInput("0.001", 18)
+	assert.Empty(t, errMsg)
+	expected, _ := new(big.Int).SetString("1000000000000000", 10)
+	assert.Equal(t, expected.String(), result.String())
+}
+
+func TestScaleTokenInputExactFraction6Decimals(t *testing.T) {
+	// 0.123456 with 6 decimals → exactly 123456
+	result, errMsg := scaleTokenInput("0.123456", 6)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "123456", result.String())
+}
+
+func TestScaleTokenInputFullPrecision18(t *testing.T) {
+	// 1.123456789123456789 with 18 decimals → exactly 1123456789123456789
+	result, errMsg := scaleTokenInput("1.123456789123456789", 18)
+	assert.Empty(t, errMsg)
+	expected, _ := new(big.Int).SetString("1123456789123456789", 10)
+	assert.Equal(t, expected.String(), result.String())
+}
+
+func TestScaleTokenInputExcessDecimalsTruncated(t *testing.T) {
+	// 1.1234567 with 6 decimals → truncate to 1.123456 → 1123456
+	result, errMsg := scaleTokenInput("1.1234567", 6)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "1123456", result.String())
+}
+
+func TestScaleTokenInputOneTenthWith8Decimals(t *testing.T) {
+	// 0.1 with 8 decimals → exactly 10000000
+	result, errMsg := scaleTokenInput("0.1", 8)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "10000000", result.String())
+}
+
+func TestScaleTokenInputSmallestUnit18(t *testing.T) {
+	// 0.000000000000000001 with 18 decimals → 1 (one wei equivalent)
+	result, errMsg := scaleTokenInput("0.000000000000000001", 18)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "1", result.String())
+}
+
+func TestScaleTokenInputNoLeadingZero(t *testing.T) {
+	// ".5" with 18 decimals → 500000000000000000
+	result, errMsg := scaleTokenInput(".5", 18)
+	assert.Empty(t, errMsg)
+	expected, _ := new(big.Int).SetString("500000000000000000", 10)
+	assert.Equal(t, expected.String(), result.String())
+}
+
+func TestScaleTokenInputZeroDecimals(t *testing.T) {
+	// 100 with 0 decimals → 100 (no scaling)
+	result, errMsg := scaleTokenInput("100", 0)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "100", result.String())
+}
+
+func TestScaleTokenInputLargeAmountExact(t *testing.T) {
+	// 1000000.5 with 6 decimals → 1000000500000
+	result, errMsg := scaleTokenInput("1000000.5", 6)
+	assert.Empty(t, errMsg)
+	assert.Equal(t, "1000000500000", result.String())
+}
+
 // ---------------------------------------------------------------------------
 // abiKnownDescription — known function descriptions
 // ---------------------------------------------------------------------------

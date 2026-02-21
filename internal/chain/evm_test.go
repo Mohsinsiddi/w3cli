@@ -460,6 +460,110 @@ func TestEstimateGasFallbackOnError(t *testing.T) {
 	_ = gas
 }
 
+func TestEstimateGasWithValue(t *testing.T) {
+	// Verify that when a non-nil value is passed, it is included in the RPC params.
+	var capturedParams json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+			ID     int               `json:"id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req) //nolint:errcheck
+		if req.Method == "eth_estimateGas" && len(req.Params) > 0 {
+			capturedParams = req.Params[0]
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  "0x7a120", // 500000
+		})
+	}))
+	defer srv.Close()
+
+	value := big.NewInt(1000000000000000) // 0.001 ETH in wei
+	gas, err := NewEVMClient(srv.URL).EstimateGas(
+		"0x1111111111111111111111111111111111111111",
+		"0x2222222222222222222222222222222222222222",
+		"0xd0e30db0", // deposit() selector
+		value,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(500000), gas)
+
+	// Verify the value was included in the RPC call params.
+	require.NotNil(t, capturedParams, "params should have been captured")
+	var params map[string]string
+	require.NoError(t, json.Unmarshal(capturedParams, &params))
+	assert.Contains(t, params, "value", "EstimateGas should include value in params for payable calls")
+	assert.Equal(t, "0x38d7ea4c68000", params["value"], "value should be 0.001 ETH in hex wei")
+}
+
+func TestEstimateGasNilValueOmitsField(t *testing.T) {
+	// Verify that when nil value is passed, the value field is NOT in the RPC params.
+	var capturedParams json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+			ID     int               `json:"id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req) //nolint:errcheck
+		if req.Method == "eth_estimateGas" && len(req.Params) > 0 {
+			capturedParams = req.Params[0]
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  "0x5208",
+		})
+	}))
+	defer srv.Close()
+
+	gas, err := NewEVMClient(srv.URL).EstimateGas("0xfrom", "0xto", "", nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(21000), gas)
+
+	require.NotNil(t, capturedParams)
+	var params map[string]string
+	require.NoError(t, json.Unmarshal(capturedParams, &params))
+	assert.NotContains(t, params, "value", "EstimateGas should NOT include value when nil")
+}
+
+func TestEstimateGasZeroValueOmitsField(t *testing.T) {
+	// Verify that zero value (non-nil but Sign()==0) does NOT include value param.
+	var capturedParams json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+			ID     int               `json:"id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req) //nolint:errcheck
+		if req.Method == "eth_estimateGas" && len(req.Params) > 0 {
+			capturedParams = req.Params[0]
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  "0x5208",
+		})
+	}))
+	defer srv.Close()
+
+	gas, err := NewEVMClient(srv.URL).EstimateGas("0xfrom", "0xto", "", big.NewInt(0))
+	require.NoError(t, err)
+	assert.Equal(t, uint64(21000), gas)
+
+	require.NotNil(t, capturedParams)
+	var params map[string]string
+	require.NoError(t, json.Unmarshal(capturedParams, &params))
+	assert.NotContains(t, params, "value", "EstimateGas should NOT include value when zero")
+}
+
 // ---------------------------------------------------------------------------
 // EVMClient — GetTransactionByHash
 // ---------------------------------------------------------------------------
