@@ -554,6 +554,89 @@ func (c *EVMClient) WaitForReceipt(hash string, timeout time.Duration) (*TxRecei
 	return nil, fmt.Errorf("transaction %s not mined within %s", hash, timeout)
 }
 
+// GetAllowance returns the ERC-20 allowance that owner has granted to spender
+// on the given token contract. Uses the allowance(address,address) selector 0xdd62ed3e.
+func (c *EVMClient) GetAllowance(tokenAddr, owner, spender string) (*big.Int, error) {
+	data := "0xdd62ed3e" +
+		fmt.Sprintf("%064s", strings.TrimPrefix(owner, "0x")) +
+		fmt.Sprintf("%064s", strings.TrimPrefix(spender, "0x"))
+
+	result, err := c.call("eth_call", map[string]string{
+		"to":   tokenAddr,
+		"data": data,
+	}, "latest")
+	if err != nil {
+		return nil, err
+	}
+	hexStr, ok := result.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result: %T", result)
+	}
+	n, ok := new(big.Int).SetString(strings.TrimPrefix(hexStr, "0x"), 16)
+	if !ok {
+		return nil, fmt.Errorf("could not parse allowance: %s", hexStr)
+	}
+	return n, nil
+}
+
+// GetPendingNonce returns the transaction count including pending (queued)
+// transactions, using the "pending" block tag.
+func (c *EVMClient) GetPendingNonce(address string) (uint64, error) {
+	result, err := c.call("eth_getTransactionCount", address, "pending")
+	if err != nil {
+		return 0, err
+	}
+	hexStr, ok := result.(string)
+	if !ok {
+		return 0, fmt.Errorf("unexpected result: %T", result)
+	}
+	n, ok := new(big.Int).SetString(strings.TrimPrefix(hexStr, "0x"), 16)
+	if !ok {
+		return 0, fmt.Errorf("could not parse pending nonce: %s", hexStr)
+	}
+	return n.Uint64(), nil
+}
+
+// SimulateCall simulates a contract call using eth_call (with from field).
+// Returns (true, returnData, nil) on success or (false, revertReason, nil) if
+// the call reverts. Network errors return (false, "", err).
+func (c *EVMClient) SimulateCall(from, to, data string, value *big.Int) (bool, string, error) {
+	params := map[string]string{
+		"from": from,
+		"to":   to,
+	}
+	if data != "" {
+		params["data"] = data
+	}
+	if value != nil && value.Sign() > 0 {
+		params["value"] = "0x" + value.Text(16)
+	}
+
+	result, err := c.call("eth_call", params, "latest")
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "revert") || strings.Contains(errMsg, "execution") {
+			return false, extractRevertReason(errMsg), nil
+		}
+		return false, "", err
+	}
+
+	hexStr, _ := result.(string)
+	return true, hexStr, nil
+}
+
+// extractRevertReason tries to pull the revert reason out of an RPC error message.
+func extractRevertReason(errMsg string) string {
+	// Common pattern: "execution reverted: <reason>"
+	if idx := strings.Index(errMsg, "execution reverted:"); idx >= 0 {
+		return strings.TrimSpace(errMsg[idx:])
+	}
+	if idx := strings.Index(errMsg, "revert"); idx >= 0 {
+		return strings.TrimSpace(errMsg[idx:])
+	}
+	return errMsg
+}
+
 // Ping tests the RPC endpoint and returns latency + block number.
 func (c *EVMClient) Ping(ctx context.Context) (latency time.Duration, blockNum uint64, err error) {
 	start := time.Now()

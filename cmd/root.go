@@ -93,5 +93,16 @@ func init() {
 		syncCmd,
 		watchCmd,
 		faucetCmd,
+		// Developer utilities.
+		allowanceCmd,
+		approveCmd,
+		decodeCmd,
+		callCmd,
+		signCmd,
+		verifyCmd,
+		convertCmd,
+		nonceCmd,
+		simulateCmd,
+		ensCmd,
 	)
 }
