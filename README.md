@@ -1,6 +1,6 @@
-# w3cli ⚡
+# w3cli
 
-> The Web3 Power CLI — 26 chains · Smart RPC · Contract Studio · Beautiful TUI
+> The Web3 Power CLI -- 26 chains, Smart RPC, Contract Studio, Beautiful TUI
 
 ```
   ██╗    ██╗██████╗  ██████╗██╗     ██╗
@@ -9,12 +9,9 @@
   ██║███╗██║ ╚═══██╗██║     ██║     ██║
   ╚███╔███╔╝██████╔╝╚██████╗███████╗██║
    ╚══╝╚══╝ ╚═════╝  ╚═════╝╚══════╝╚═╝
-
-     The Web3 Power CLI  ⚡  v1.0.0
-  ✦ 26 chains  ✦ Smart RPC  ✦ Contract Studio
 ```
 
-Check balances, query transactions, interact with smart contracts, sign and send transactions, and monitor wallets — across **26 blockchain networks** — all from your terminal.
+Check balances, send transactions, interact with smart contracts, deploy tokens, sign messages, and debug on-chain data -- across **26 blockchain networks** -- all from your terminal.
 
 ---
 
@@ -32,6 +29,7 @@ npm install -g w3cli
 git clone https://github.com/Mohsinsiddi/w3cli.git
 cd w3cli
 go build -o w3cli .
+cp w3cli /usr/local/bin/w3cli
 ```
 
 Requires Go 1.25+.
@@ -41,7 +39,7 @@ Requires Go 1.25+.
 ## Quick Start
 
 ```bash
-# Setup wizard
+# Interactive setup wizard
 w3cli init
 
 # Check a wallet balance
@@ -52,111 +50,187 @@ w3cli network list
 
 # Watch live balance dashboard
 w3cli balance --live
+
+# Show active defaults
+w3cli default
 ```
 
 ---
 
 ## Commands
 
-### Network
-```bash
-w3cli network list                    # List all 26 chains
-w3cli network use base                # Set default network
-w3cli network use base --testnet      # Switch to testnet
-```
+### Wallet Management
 
-### Wallet
 ```bash
-w3cli wallet add mywallet 0x1234...   # Add watch-only wallet
-w3cli wallet list                     # List wallets
-w3cli wallet use mywallet             # Set default wallet
-w3cli wallet remove mywallet          # Remove wallet
+w3cli wallet add mywallet 0x1234...             # Add watch-only wallet
+w3cli wallet add deployer --key <private-key>    # Add signing wallet (stored in OS keychain)
+w3cli wallet list                                # List wallets
+w3cli wallet use mywallet                        # Set default wallet
+w3cli wallet unlock                              # Cache keys for session (no repeated OS prompts)
+w3cli wallet lock                                # Clear session cache
+w3cli wallet remove mywallet                     # Remove wallet
 ```
 
 ### Balance
+
 ```bash
-w3cli balance                         # Default wallet + network
-w3cli balance --wallet mywallet       # Specific wallet (name or address)
-w3cli balance --network polygon       # Specific network
-w3cli balance --token 0xUSDC...       # ERC-20 token balance
-w3cli balance --live                  # Live auto-refresh dashboard
+w3cli balance                                    # Default wallet + network
+w3cli balance --wallet mywallet                  # Specific wallet
+w3cli balance --network polygon                  # Specific network
+w3cli balance --token 0xUSDC...                  # ERC-20 token balance
+w3cli balance --live                             # Live auto-refresh dashboard
+w3cli allbal --wallet 0x...                      # Scan all 24 EVM chains at once
+```
+
+### Send Transactions
+
+```bash
+w3cli send --to 0x... --value 0.1                # Send native token
+w3cli send --to 0x... --value 100 --token 0xUSDC # Send ERC-20
+w3cli send --gas fast                            # Gas speed: slow / standard / fast
+```
+
+### Token Deploy & Manage
+
+```bash
+w3cli token deploy MyToken MTK 18 1000000        # Deploy ERC-20 (name, symbol, decimals, supply)
+w3cli token mint --contract 0x... --to 0x... --amount 500
+w3cli token transfer --contract 0x... --to 0x... --amount 100
 ```
 
 ### Transactions
-```bash
-w3cli txs                             # Last 10 transactions
-w3cli txs --last 25                   # Last N transactions
-w3cli tx 0xHASH                       # Single transaction details
-```
 
-### Send
 ```bash
-w3cli send --to 0x... --value 0.1     # Send native token
-w3cli send --to 0x... --value 100 --token 0xUSDC  # Send ERC-20
-w3cli send --gas fast                 # Gas speed: slow / standard / fast
-```
-
-### RPC Management
-```bash
-w3cli rpc add base https://custom.rpc.url    # Add custom RPC
-w3cli rpc list base                          # List RPCs for chain
-w3cli rpc benchmark base                     # Benchmark all RPCs
-w3cli rpc algorithm set fastest             # fastest | round-robin | failover
+w3cli txs                                        # Last 10 transactions
+w3cli txs --last 25                              # Last N transactions
+w3cli tx 0xHASH                                  # Single transaction details
+w3cli watch                                      # Stream live transactions
 ```
 
 ### Contract Studio
+
+Interactive TUI for reading and writing smart contract functions.
+
 ```bash
-w3cli contract add MyToken 0xADDR --abi ./abi.json   # Register contract
-w3cli contract add MyToken 0xADDR --fetch            # Auto-fetch ABI
-w3cli contract list                                   # List contracts
-w3cli contract call MyToken balanceOf 0xWALLET        # Read function
-w3cli contract send MyToken transfer 0xTO 1000        # Write function
+w3cli contract add MyToken 0xADDR --abi ./abi.json  # Register with local ABI
+w3cli contract add MyToken 0xADDR --fetch            # Auto-fetch ABI from explorer
+w3cli contract list                                   # List registered contracts
 w3cli contract studio MyToken                         # Interactive TUI
 ```
 
+The studio auto-detects function types, shows parameter hints with examples, scales token amounts by decimals, and provides a full sign-preview-broadcast flow for write functions.
+
+### Allowance & Approve
+
+```bash
+w3cli allowance --token 0xUSDC --owner 0x... --spender 0xRouter   # Check allowance
+w3cli approve --token 0xUSDC --spender 0xRouter --amount max       # Approve spending
+```
+
+### Contract Calls
+
+```bash
+w3cli call 0xUSDC balanceOf 0xWALLET                               # Built-in ERC-20
+w3cli call 0xContract "getPrice(address)" 0xToken                  # Custom signature
+```
+
+### Simulate Transactions
+
+```bash
+w3cli simulate --from 0x... --to 0x... --data 0xa9059cbb... --network ethereum
+```
+
+Dry-runs via `eth_call` -- reports success/revert with decoded reason and gas estimate.
+
+### Nonce
+
+```bash
+w3cli nonce --wallet deployer --network ethereum --testnet
+```
+
+Shows confirmed + pending nonce. Warns if they differ (stuck transactions).
+
+### Message Signing (EIP-191)
+
+```bash
+w3cli sign "Hello Web3" --wallet deployer        # Sign message
+w3cli verify "Hello Web3" --sig 0x... --address 0x...  # Verify signature
+```
+
+### ENS Resolution
+
+```bash
+w3cli ens vitalik.eth                            # Name -> address
+w3cli ens 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045  # Address -> name (reverse)
+```
+
+### Developer Utilities
+
+```bash
+# Unit conversion (no RPC needed)
+w3cli convert 1.5 eth                            # -> gwei + wei
+w3cli convert 50 gwei                            # -> eth + wei
+w3cli convert 0xff                               # -> 255 (decimal)
+w3cli convert 255 hex                            # -> 0xff
+
+# Calldata decode / encode
+w3cli decode 0xa9059cbb000000000000000000...     # Decode calldata -> method + args
+w3cli encode "transfer(address,uint256)" 0xTo 1000000000000000000
+
+# Keccak-256 hashing
+w3cli keccak "transfer(address,uint256)"         # Full hash + 4-byte selector
+w3cli keccak 0xdeadbeef                          # Hash raw hex bytes
+
+# Function selectors
+w3cli selector "transfer(address,uint256)"       # Signature -> 0xa9059cbb
+w3cli selector 0xa9059cbb                        # Reverse lookup -> transfer
+
+# Address checksum (EIP-55)
+w3cli checksum 0xd8da6bf26964af9d7eed9e03e53415d37aa96045
+
+# Contract inspection
+w3cli code 0xUSDC --network ethereum             # Contract or EOA?
+w3cli storage 0xContract 0 --network ethereum    # Read raw storage slot
+w3cli events 0xContract --network ethereum       # Query event logs (auto-decodes Transfer, Approval, etc.)
+```
+
+### Network Management
+
+```bash
+w3cli network list                               # List all 26 chains
+w3cli network use base                           # Set default network
+w3cli network use base --testnet                 # Switch to testnet
+w3cli allgas                                     # Gas prices across all chains
+w3cli block --network ethereum                   # Latest block details
+w3cli faucet                                     # Testnet faucet links
+```
+
+### RPC Management
+
+```bash
+w3cli rpc add base https://custom.rpc.url        # Add custom RPC
+w3cli rpc list base                               # List RPCs for chain
+w3cli rpc remove base https://old.rpc.url         # Remove custom RPC
+w3cli rpc benchmark base                          # Benchmark all RPCs
+w3cli rpc algorithm set fastest                   # fastest | round-robin | failover
+```
+
 ### Config
-```bash
-w3cli config list                          # Show full config
-w3cli config list --verbose                # Show full config + raw JSON (includes saved keys)
-w3cli config set-default-network base      # Set default network
-w3cli config set-default-wallet mywallet   # Set default wallet
-w3cli config set-network-mode testnet      # Persist testnet as default mode
-w3cli config set-explorer-key <key>        # Set BlockScout / Etherscan explorer key
-w3cli config set-rpc base https://my.rpc   # Add a custom RPC for a chain
-```
-
-### Provider API Keys (Transaction History)
-
-Unlock richer transaction history by adding provider API keys. Free providers work out-of-the-box; keyed providers give full indexed history.
 
 ```bash
-# Key-gated providers — activate when key is set
-w3cli config set-key etherscan <key>   # Etherscan V2 — 14+ EVM chains (etherscan.io/apis)
-w3cli config set-key alchemy <key>     # Alchemy — ETH, Base, Polygon, ARB, OP (alchemy.com)
-w3cli config set-key moralis <key>     # Moralis — 14+ chains incl. BNB, FTM (moralis.io)
-w3cli config set-key ankr <key>        # Ankr — higher rate limits (ankr.com/rpc/apps)
-
-# Verify saved keys
-w3cli config list --verbose
+w3cli config list                                 # Show full config
+w3cli config set-default-network base             # Set default network
+w3cli config set-default-wallet mywallet          # Set default wallet
+w3cli config set-network-mode testnet             # Persist testnet mode
+w3cli config set-key etherscan <key>              # Add provider API key
+w3cli default                                     # Quick overview of active defaults
 ```
 
-Provider priority order (first that returns data wins):
-```
-Etherscan → Alchemy → Moralis → BlockScout (free) → Ankr (free) → RPC (last 200 blocks)
-```
+### Sync (Team Deployments)
 
-See [PROVIDERS.md](./PROVIDERS.md) for full per-chain coverage details.
-
-### Sync
 ```bash
 w3cli sync set-source https://yourproject.com/deployments.json
-w3cli sync run                         # Fetch latest addresses + ABIs
-```
-
-### Watch
-```bash
-w3cli watch                            # Monitor wallet across chains
-w3cli watch --network base             # Single chain
+w3cli sync run                                    # Fetch latest addresses + ABIs
 ```
 
 ---
@@ -189,8 +263,10 @@ w3cli watch --network base             # Single chain
 | 22 | Polygon zkEVM | 1101 | EVM |
 | 23 | Hyperliquid EVM | 999 | EVM |
 | 24 | Boba Network | 288 | EVM |
-| 25 | Solana | — | Solana |
-| 26 | SUI | — | SUI |
+| 25 | Solana | -- | Solana |
+| 26 | SUI | -- | SUI |
+
+All EVM chains have testnet support. Use `--testnet` or `w3cli config set-network-mode testnet` to switch.
 
 ---
 
@@ -198,35 +274,64 @@ w3cli watch --network base             # Single chain
 
 w3cli automatically picks the best RPC endpoint using three algorithms:
 
-- **Fastest** (default) — pings all RPCs in parallel, scores by latency + block recency, caches winner for 5 minutes
-- **Round-robin** — cycles through healthy endpoints evenly
-- **Failover** — always tries primary, falls back on failure
+- **Fastest** (default) -- pings all RPCs in parallel, scores by latency + block recency, caches winner for 5 minutes
+- **Round-robin** -- cycles through healthy endpoints evenly
+- **Failover** -- always tries primary, falls back on failure
 
-Stale nodes (>3 blocks behind best) are automatically discarded.
+Stale nodes (>3 blocks behind best) are automatically discarded. Add custom RPCs with `w3cli rpc add`.
 
 ---
 
-## Config
+## Transaction History Providers
 
-Config is stored at `~/.w3cli/` (override with `CHAIN_CONFIG_DIR` env var).
+`w3cli txs` uses a priority-ordered provider chain. The first provider that returns data wins.
+
+```
+Etherscan V2 -> Alchemy -> Moralis -> BlockScout (free) -> Ankr (free) -> RPC fallback
+```
+
+Free providers work out-of-the-box. Add API keys for richer history:
+
+```bash
+w3cli config set-key etherscan <key>   # 14+ EVM chains (etherscan.io/apis)
+w3cli config set-key alchemy <key>     # ETH, Base, Polygon, ARB, OP (alchemy.com)
+w3cli config set-key moralis <key>     # 14+ chains (moralis.io)
+w3cli config set-key ankr <key>        # Higher rate limits (ankr.com)
+```
+
+---
+
+## Wallet Security
+
+Private keys are stored in the **OS keychain** (macOS Keychain, Linux Secret Service / KWallet). Keys never touch disk in plaintext.
+
+- `w3cli wallet unlock` caches keys in a session file (`~/Library/Caches/w3cli/session.json`) for the duration of your work so you don't get repeated OS keychain prompts
+- `w3cli wallet lock` clears the session cache
+- `W3CLI_KEY` env var overrides all key lookups (useful for CI/CD)
+
+---
+
+## Config Directory
 
 ```
 ~/.w3cli/
-├── config.json      # Networks, defaults, RPC algorithm
-├── wallets.json     # Wallet addresses
-├── contracts.json   # Registered contracts + ABIs
-└── sync.json        # Auto-sync source + timestamp
+  config.json      # Networks, defaults, RPC algorithm, API keys
+  wallets.json     # Wallet addresses + keychain references
+  contracts.json   # Registered contracts + ABIs
+  sync.json        # Auto-sync source + timestamp
 ```
+
+Override with `--config <dir>` or `CHAIN_CONFIG_DIR` env var.
 
 ---
 
 ## Tech Stack
 
-- **[Cobra](https://github.com/spf13/cobra)** — CLI command routing
-- **[Bubble Tea](https://github.com/charmbracelet/bubbletea)** — Interactive TUI
-- **[Lip Gloss](https://github.com/charmbracelet/lipgloss)** — Colors & styling
-- **[go-ethereum](https://github.com/ethereum/go-ethereum)** — EVM RPC & ABI
-- **[99designs/keyring](https://github.com/99designs/keyring)** — OS keychain storage
+- **[Cobra](https://github.com/spf13/cobra)** -- CLI command routing
+- **[Bubble Tea](https://github.com/charmbracelet/bubbletea)** -- Interactive TUI (Contract Studio)
+- **[Lip Gloss](https://github.com/charmbracelet/lipgloss)** -- Terminal colors & styling
+- **[go-ethereum](https://github.com/ethereum/go-ethereum)** -- EVM RPC, ABI encoding, transaction signing
+- **[99designs/keyring](https://github.com/99designs/keyring)** -- OS keychain storage
 
 ---
 
@@ -234,23 +339,20 @@ Config is stored at `~/.w3cli/` (override with `CHAIN_CONFIG_DIR` env var).
 
 ```bash
 # Run all tests
+go test ./...
+
+# Run with race detector
 go test ./... -race
 
 # Build
 go build -o w3cli .
 
-# Build all platforms
-VERSION=1.0.0 ./scripts/build-all.sh
-
-# Release
-VERSION=1.0.0 ./scripts/release.sh
+# Build + install
+go build -o w3cli . && cp w3cli /usr/local/bin/w3cli
 ```
 
 ---
 
 ## License
 
-MIT © [siddi_404](https://github.com/Mohsinsiddi)
-# w3cli
-# w3cli
-# w3cli
+MIT
