@@ -637,6 +637,74 @@ func extractRevertReason(errMsg string) string {
 	return errMsg
 }
 
+// GetStorageAt reads a raw storage slot from a contract.
+func (c *EVMClient) GetStorageAt(address, slot string) (string, error) {
+	// Pad slot to 32 bytes if needed.
+	if !strings.HasPrefix(slot, "0x") {
+		slot = "0x" + slot
+	}
+	result, err := c.call("eth_getStorageAt", address, slot, "latest")
+	if err != nil {
+		return "", err
+	}
+	s, ok := result.(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected result: %T", result)
+	}
+	return s, nil
+}
+
+// GetCode returns the bytecode at an address. Empty "0x" means EOA (no code).
+func (c *EVMClient) GetCode(address string) (string, error) {
+	result, err := c.call("eth_getCode", address, "latest")
+	if err != nil {
+		return "", err
+	}
+	s, ok := result.(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected result: %T", result)
+	}
+	return s, nil
+}
+
+// LogEntry holds one event log.
+type LogEntry struct {
+	Address     string   `json:"address"`
+	Topics      []string `json:"topics"`
+	Data        string   `json:"data"`
+	BlockNumber string   `json:"blockNumber"`
+	TxHash      string   `json:"transactionHash"`
+	LogIndex    string   `json:"logIndex"`
+}
+
+// GetLogs queries event logs matching the given filter.
+func (c *EVMClient) GetLogs(address string, topics []string, fromBlock, toBlock string) ([]LogEntry, error) {
+	filter := map[string]interface{}{
+		"address":   address,
+		"fromBlock": fromBlock,
+		"toBlock":   toBlock,
+	}
+	if len(topics) > 0 {
+		filter["topics"] = topics
+	}
+
+	result, err := c.call("eth_getLogs", filter)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	var logs []LogEntry
+	if err := json.Unmarshal(raw, &logs); err != nil {
+		return nil, fmt.Errorf("parsing logs: %w", err)
+	}
+	return logs, nil
+}
+
 // Ping tests the RPC endpoint and returns latency + block number.
 func (c *EVMClient) Ping(ctx context.Context) (latency time.Duration, blockNum uint64, err error) {
 	start := time.Now()

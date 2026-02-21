@@ -705,7 +705,7 @@ func studioExecuteWrite(
 		return
 	}
 
-	nonce, err := client.GetNonce(w.Address)
+	nonce, err := client.GetPendingNonce(w.Address)
 	if err != nil {
 		fmt.Println(ui.Err("getting nonce: " + err.Error()))
 		return

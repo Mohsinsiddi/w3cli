@@ -183,3 +183,117 @@ func TestExtractRevertReason_NoMatch(t *testing.T) {
 	reason := extractRevertReason(msg)
 	assert.Equal(t, msg, reason)
 }
+
+// ---------------------------------------------------------------------------
+// EVMClient — GetStorageAt
+// ---------------------------------------------------------------------------
+
+func TestGetStorageAtSuccess(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getStorageAt": "0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045",
+	})
+	defer srv.Close()
+
+	val, err := NewEVMClient(srv.URL).GetStorageAt("0xContract", "0x0")
+	require.NoError(t, err)
+	assert.Contains(t, val, "d8da6bf26964af9d7eed9e03e53415d37aa96045")
+}
+
+func TestGetStorageAtZero(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getStorageAt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+	})
+	defer srv.Close()
+
+	val, err := NewEVMClient(srv.URL).GetStorageAt("0xContract", "0x0")
+	require.NoError(t, err)
+	assert.NotEmpty(t, val)
+}
+
+func TestGetStorageAtRPCError(t *testing.T) {
+	srv := rpcErrorServer(t, -32000, "execution error")
+	defer srv.Close()
+
+	_, err := NewEVMClient(srv.URL).GetStorageAt("0xContract", "0x0")
+	require.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// EVMClient — GetCode
+// ---------------------------------------------------------------------------
+
+func TestGetCodeContract(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getCode": "0x6080604052600436106100a05760003560e01c",
+	})
+	defer srv.Close()
+
+	code, err := NewEVMClient(srv.URL).GetCode("0xContract")
+	require.NoError(t, err)
+	assert.True(t, len(code) > 2, "contract should have bytecode")
+	assert.NotEqual(t, "0x", code)
+}
+
+func TestGetCodeEOA(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getCode": "0x",
+	})
+	defer srv.Close()
+
+	code, err := NewEVMClient(srv.URL).GetCode("0xEOA")
+	require.NoError(t, err)
+	assert.Equal(t, "0x", code)
+}
+
+func TestGetCodeRPCError(t *testing.T) {
+	srv := rpcErrorServer(t, -32602, "invalid address")
+	defer srv.Close()
+
+	_, err := NewEVMClient(srv.URL).GetCode("0xbad")
+	require.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// EVMClient — GetLogs
+// ---------------------------------------------------------------------------
+
+func TestGetLogsSuccess(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getLogs": []interface{}{
+			map[string]interface{}{
+				"address":          "0xtoken",
+				"topics":           []interface{}{"0xddf252ad"},
+				"data":             "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000",
+				"blockNumber":      "0x100",
+				"transactionHash":  "0xabc123",
+				"logIndex":         "0x0",
+			},
+		},
+	})
+	defer srv.Close()
+
+	logs, err := NewEVMClient(srv.URL).GetLogs("0xtoken", nil, "0x0", "latest")
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(logs))
+	assert.Equal(t, "0xtoken", logs[0].Address)
+	assert.Equal(t, "0xabc123", logs[0].TxHash)
+}
+
+func TestGetLogsEmpty(t *testing.T) {
+	srv := rpcMock(t, map[string]interface{}{
+		"eth_getLogs": []interface{}{},
+	})
+	defer srv.Close()
+
+	logs, err := NewEVMClient(srv.URL).GetLogs("0xtoken", nil, "0x0", "latest")
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(logs))
+}
+
+func TestGetLogsRPCError(t *testing.T) {
+	srv := rpcErrorServer(t, -32000, "too many results")
+	defer srv.Close()
+
+	_, err := NewEVMClient(srv.URL).GetLogs("0xtoken", nil, "0x0", "latest")
+	require.Error(t, err)
+}

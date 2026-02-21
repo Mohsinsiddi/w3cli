@@ -104,5 +104,12 @@ func init() {
 		nonceCmd,
 		simulateCmd,
 		ensCmd,
+		checksumCmd,
+		keccakCmd,
+		selectorCmd,
+		encodeCmd,
+		storageCmd,
+		codeCmd,
+		eventsCmd,
 	)
 }

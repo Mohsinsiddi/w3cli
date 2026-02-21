@@ -118,7 +118,7 @@ func allChains() []Chain {
 			Name: "ethereum", DisplayName: "Ethereum", ChainID: 1, Type: ChainTypeEVM,
 			NativeCurrency: "ETH",
 			MainnetRPCs:    []string{"https://eth.llamarpc.com", "https://ethereum-rpc.publicnode.com"},
-			TestnetRPCs:    []string{"https://rpc.sepolia.org", "https://sepolia.gateway.tenderly.co"},
+			TestnetRPCs:    []string{"https://ethereum-sepolia-rpc.publicnode.com", "https://sepolia.gateway.tenderly.co", "https://1rpc.io/sepolia", "https://sepolia.drpc.org"},
 			MainnetExplorer: "https://etherscan.io",
 			TestnetExplorer: "https://sepolia.etherscan.io",
 			TestnetName:    "Sepolia",

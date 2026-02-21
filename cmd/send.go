@@ -105,7 +105,7 @@ Examples:
 			return err
 		}
 
-		nonce, err := client.GetNonce(w.Address)
+		nonce, err := client.GetPendingNonce(w.Address)
 		if err != nil {
 			spin.Stop()
 			return err

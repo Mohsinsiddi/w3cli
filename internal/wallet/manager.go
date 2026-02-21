@@ -35,6 +35,46 @@ type Wallet struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// UnmarshalJSON handles both snake_case (current) and PascalCase (legacy) field
+// names so existing wallets.json files continue to work after the tag convention
+// was changed from Go-default PascalCase to explicit snake_case.
+func (w *Wallet) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	str := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := raw[k]; ok {
+				var s string
+				if json.Unmarshal(v, &s) == nil {
+					return s
+				}
+			}
+		}
+		return ""
+	}
+	boolVal := func(keys ...string) bool {
+		for _, k := range keys {
+			if v, ok := raw[k]; ok {
+				var b bool
+				if json.Unmarshal(v, &b) == nil {
+					return b
+				}
+			}
+		}
+		return false
+	}
+	w.Name = str("name", "Name")
+	w.Address = str("address", "Address")
+	w.Type = str("type", "Type")
+	w.KeyRef = str("key_ref", "KeyRef")
+	w.ChainType = str("chain_type", "ChainType")
+	w.IsDefault = boolVal("is_default", "IsDefault")
+	w.CreatedAt = str("created_at", "CreatedAt")
+	return nil
+}
+
 // Store is an interface for persisting wallets.
 type Store interface {
 	Load() ([]*Wallet, error)

@@ -66,8 +66,8 @@ func (s *Sender) Send(contractAddr, funcName string, args ...string) (string, er
 		return "", fmt.Errorf("getting gas price: %w", err)
 	}
 
-	// Get nonce.
-	nonce, err := s.client.GetNonce(from)
+	// Get pending nonce (accounts for in-flight txs).
+	nonce, err := s.client.GetPendingNonce(from)
 	if err != nil {
 		return "", fmt.Errorf("getting nonce: %w", err)
 	}
