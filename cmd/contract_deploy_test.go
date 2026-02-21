@@ -577,3 +577,203 @@ func TestContractDeployCommandLongDescription(t *testing.T) {
 	assert.Contains(t, contractDeployCmd.Long, "bytecode")
 	assert.Contains(t, contractDeployCmd.Long, "auto-registered")
 }
+
+// ---------------------------------------------------------------------------
+// ethToWei — exact string-based ETH → wei conversion
+// ---------------------------------------------------------------------------
+
+func TestEthToWeiExactOneTenth(t *testing.T) {
+	wei, err := ethToWei("0.1")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("100000000000000000", 10) // 1e17
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiExactOneThousandth(t *testing.T) {
+	// This was the precision bug — 0.001 ETH must be exactly 1e15 wei.
+	wei, err := ethToWei("0.001")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1000000000000000", 10) // 1e15
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiWholeNumber(t *testing.T) {
+	wei, err := ethToWei("1")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1000000000000000000", 10) // 1e18
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiZero(t *testing.T) {
+	wei, err := ethToWei("0")
+	require.NoError(t, err)
+	assert.Equal(t, "0", wei.String())
+}
+
+func TestEthToWeiLargeAmount(t *testing.T) {
+	wei, err := ethToWei("100")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("100000000000000000000", 10) // 1e20
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiSmallFraction(t *testing.T) {
+	// 0.000000000000000001 ETH = 1 wei
+	wei, err := ethToWei("0.000000000000000001")
+	require.NoError(t, err)
+	assert.Equal(t, "1", wei.String())
+}
+
+func TestEthToWeiExcessDecimals(t *testing.T) {
+	// More than 18 decimals — should truncate to 18.
+	wei, err := ethToWei("0.0000000000000000019")
+	require.NoError(t, err)
+	assert.Equal(t, "1", wei.String(), "should truncate past 18 decimals")
+}
+
+func TestEthToWeiMixed(t *testing.T) {
+	wei, err := ethToWei("1.5")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1500000000000000000", 10) // 1.5e18
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiEmpty(t *testing.T) {
+	_, err := ethToWei("")
+	assert.Error(t, err)
+}
+
+func TestEthToWeiInvalidString(t *testing.T) {
+	_, err := ethToWei("abc")
+	assert.Error(t, err)
+}
+
+func TestEthToWeiNoLeadingZero(t *testing.T) {
+	// ".5" — no leading zero before the decimal
+	wei, err := ethToWei(".5")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("500000000000000000", 10) // 0.5e18
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+func TestEthToWeiWhitespace(t *testing.T) {
+	wei, err := ethToWei("  0.001  ")
+	require.NoError(t, err)
+	expected, _ := new(big.Int).SetString("1000000000000000", 10)
+	assert.Equal(t, expected.String(), wei.String())
+}
+
+// ---------------------------------------------------------------------------
+// abiToStudioEntries — payable detection
+// ---------------------------------------------------------------------------
+
+func TestAbiToStudioEntriesPayableFunction(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "deposit", Type: "function", StateMutability: "payable"},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.True(t, entries[0].IsPayable, "payable function should set IsPayable=true")
+	assert.True(t, entries[0].IsWrite, "payable function should be a write function")
+}
+
+func TestAbiToStudioEntriesNonPayableWrite(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "withdraw", Type: "function", StateMutability: "nonpayable",
+			Inputs: []contract.ABIParam{{Name: "amount", Type: "uint256"}}},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.False(t, entries[0].IsPayable, "nonpayable function should set IsPayable=false")
+	assert.True(t, entries[0].IsWrite, "nonpayable function should still be a write function")
+}
+
+func TestAbiToStudioEntriesViewNotPayable(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "getBalance", Type: "function", StateMutability: "view"},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.False(t, entries[0].IsPayable, "view function should not be payable")
+	assert.False(t, entries[0].IsWrite, "view function should not be a write function")
+}
+
+func TestAbiToStudioEntriesPureNotPayable(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "add", Type: "function", StateMutability: "pure",
+			Inputs: []contract.ABIParam{{Name: "a", Type: "uint256"}, {Name: "b", Type: "uint256"}}},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.False(t, entries[0].IsPayable)
+	assert.False(t, entries[0].IsWrite)
+}
+
+func TestAbiToStudioEntriesEventNotPayable(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "Deposited", Type: "event",
+			Inputs: []contract.ABIParam{{Name: "sender", Type: "address"}, {Name: "amount", Type: "uint256"}}},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.False(t, entries[0].IsPayable, "events should not be payable")
+	assert.True(t, entries[0].IsEvent)
+}
+
+func TestAbiToStudioEntriesMixedPayability(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "deposit", Type: "function", StateMutability: "payable"},
+		{Name: "withdraw", Type: "function", StateMutability: "nonpayable",
+			Inputs: []contract.ABIParam{{Name: "amount", Type: "uint256"}}},
+		{Name: "getBalance", Type: "function", StateMutability: "view"},
+		{Name: "receive", Type: "function", StateMutability: "payable"},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 4)
+
+	// deposit — payable
+	assert.True(t, entries[0].IsPayable)
+	assert.True(t, entries[0].IsWrite)
+
+	// withdraw — nonpayable
+	assert.False(t, entries[1].IsPayable)
+	assert.True(t, entries[1].IsWrite)
+
+	// getBalance — view
+	assert.False(t, entries[2].IsPayable)
+	assert.False(t, entries[2].IsWrite)
+
+	// receive — payable
+	assert.True(t, entries[3].IsPayable)
+	assert.True(t, entries[3].IsWrite)
+}
+
+func TestAbiToStudioEntriesConstructorSkipped(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "", Type: "constructor", StateMutability: "payable",
+			Inputs: []contract.ABIParam{{Name: "_token", Type: "address"}}},
+		{Name: "deposit", Type: "function", StateMutability: "payable"},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	// Constructor should be skipped, only function entries included.
+	require.Len(t, entries, 1)
+	assert.Equal(t, "deposit", entries[0].Name)
+	assert.True(t, entries[0].IsPayable)
+}
+
+func TestAbiToStudioEntriesPayableWithInputs(t *testing.T) {
+	abi := []contract.ABIEntry{
+		{Name: "buyToken", Type: "function", StateMutability: "payable",
+			Inputs: []contract.ABIParam{
+				{Name: "recipient", Type: "address"},
+				{Name: "minOut", Type: "uint256"},
+			}},
+	}
+	entries := abiToStudioEntries(abi, -1)
+	require.Len(t, entries, 1)
+	assert.True(t, entries[0].IsPayable)
+	assert.True(t, entries[0].IsWrite)
+	assert.Len(t, entries[0].Inputs, 2)
+	assert.Equal(t, "recipient", entries[0].Inputs[0].Name)
+	assert.Equal(t, "minOut", entries[0].Inputs[1].Name)
+}

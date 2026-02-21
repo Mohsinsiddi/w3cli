@@ -28,6 +28,7 @@ type StudioEntry struct {
 	Selector    string       // "0xa9059cbb" — empty for events
 	Sig         string       // canonical sig, e.g. "transfer(address,uint256)"
 	IsWrite     bool
+	IsPayable   bool
 	IsEvent     bool
 	Inputs      []StudioParam
 	OutputTypes []string // display only (read functions)
@@ -214,11 +215,16 @@ func (m StudioModel) View() string {
 			if selected {
 				prefix = "  ▸ "
 			}
-			line := fmt.Sprintf("%s%s  %s(%s)",
+			payableBadge := ""
+			if e.IsPayable {
+				payableBadge = StyleInfo.Render("  Ξ payable")
+			}
+			line := fmt.Sprintf("%s%s  %s(%s)%s",
 				prefix,
 				StyleMeta.Render(e.Selector),
 				StyleWarning.Render(e.Name),
 				StyleMeta.Render(studioParamSig(e.Inputs)),
+				payableBadge,
 			)
 			if selected {
 				sb.WriteString(StyleSelected.Render(line) + "\n")

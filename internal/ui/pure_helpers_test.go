@@ -198,3 +198,68 @@ func TestDangerBoxEmptyContent(t *testing.T) {
 	// Should not panic on empty input.
 	assert.NotPanics(t, func() { DangerBox("") })
 }
+
+// ---------------------------------------------------------------------------
+// StudioModel.View — payable badge rendering
+// ---------------------------------------------------------------------------
+
+func TestStudioViewPayableBadge(t *testing.T) {
+	model := StudioModel{
+		ContractName: "Vault",
+		Address:      "0x1234567890abcdef1234567890abcdef12345678",
+		Network:      "ethereum",
+		Mode:         "testnet",
+		FuncCount:    2,
+		EventCount:   0,
+		Entries: []StudioEntry{
+			{Name: "deposit", Selector: "0xd0e30db0", Sig: "deposit()",
+				IsWrite: true, IsPayable: true},
+			{Name: "withdraw", Selector: "0x2e1a7d4d", Sig: "withdraw(uint256)",
+				IsWrite: true, IsPayable: false,
+				Inputs: []StudioParam{{Name: "amount", Type: "uint256"}}},
+		},
+	}
+	model.buildNav()
+
+	view := model.View()
+
+	// Payable function should show the payable badge
+	assert.Contains(t, view, "payable", "payable function should show payable badge")
+	assert.Contains(t, view, "deposit", "should show the deposit function")
+	assert.Contains(t, view, "withdraw", "should show the withdraw function")
+}
+
+func TestStudioViewNonPayableNoBadge(t *testing.T) {
+	model := StudioModel{
+		ContractName: "Token",
+		Address:      "0x1234567890abcdef1234567890abcdef12345678",
+		Network:      "ethereum",
+		Mode:         "testnet",
+		FuncCount:    1,
+		EventCount:   0,
+		Entries: []StudioEntry{
+			{Name: "transfer", Selector: "0xa9059cbb", Sig: "transfer(address,uint256)",
+				IsWrite: true, IsPayable: false,
+				Inputs: []StudioParam{
+					{Name: "to", Type: "address"},
+					{Name: "amount", Type: "uint256"},
+				}},
+		},
+	}
+	model.buildNav()
+
+	view := model.View()
+
+	assert.Contains(t, view, "transfer", "should show the transfer function")
+	assert.NotContains(t, view, "payable", "non-payable function should not show payable badge")
+}
+
+func TestStudioEntryIsPayableField(t *testing.T) {
+	payable := StudioEntry{Name: "deposit", IsWrite: true, IsPayable: true}
+	nonPayable := StudioEntry{Name: "withdraw", IsWrite: true, IsPayable: false}
+	readOnly := StudioEntry{Name: "balance", IsWrite: false, IsPayable: false}
+
+	assert.True(t, payable.IsPayable, "deposit should be payable")
+	assert.False(t, nonPayable.IsPayable, "withdraw should not be payable")
+	assert.False(t, readOnly.IsPayable, "balance should not be payable")
+}

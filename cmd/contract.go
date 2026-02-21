@@ -725,6 +725,29 @@ func studioExecuteWrite(
 		return
 	}
 
+	// ── Payable: prompt for ETH value ────────────────────────────────────
+	valueBig := big.NewInt(0)
+	valueDisplay := ""
+	if fn.IsPayable {
+		fmt.Println(ui.StyleHeader.Render("  ── ETH Value (payable) "))
+		fmt.Printf("  %s\n", ui.Meta("This function accepts ETH. Enter 0 to send none."))
+		for {
+			raw := ui.PromptInput("  Value (ETH)")
+			if raw == "" {
+				raw = "0"
+			}
+			parsed, err := ethToWei(raw)
+			if err != nil || parsed.Sign() < 0 {
+				fmt.Println(ui.Err("  invalid amount — enter a non-negative number (e.g. 0.1)"))
+				continue
+			}
+			valueBig = parsed
+			valueDisplay = raw + " ETH"
+			fmt.Printf("  %s\n\n", ui.Success(fmt.Sprintf("✓  value = %s", valueDisplay)))
+			break
+		}
+	}
+
 	gasPrice, err := client.GasPrice()
 	if err != nil {
 		fmt.Println(ui.Err("getting gas price: " + err.Error()))
@@ -764,6 +787,9 @@ func studioExecuteWrite(
 			pairs = append(pairs, [2]string{lbl, inputs[i]})
 		}
 	}
+	if fn.IsPayable && valueDisplay != "" {
+		pairs = append(pairs, [2]string{"Value", valueDisplay})
+	}
 	pairs = append(pairs,
 		[2]string{"Gas Limit", fmt.Sprintf("%d", gasLimit)},
 		[2]string{"Gas Price", fmt.Sprintf("%d Gwei", toGwei(gasPrice))},
@@ -792,7 +818,7 @@ func studioExecuteWrite(
 		GasFeeCap: new(big.Int).Mul(gasPrice, big.NewInt(2)),
 		Gas:       gasLimit,
 		To:        &contractAddr,
-		Value:     big.NewInt(0),
+		Value:     valueBig,
 		Data:      calldataRaw,
 	})
 
@@ -1003,14 +1029,11 @@ Examples:
 		// Parse --value for payable constructors.
 		valueBig := big.NewInt(0)
 		if contractDeployValue != "" {
-			f, ok := new(big.Float).SetString(contractDeployValue)
-			if !ok {
-				return fmt.Errorf("invalid --value %q", contractDeployValue)
+			parsed, err := ethToWei(contractDeployValue)
+			if err != nil {
+				return fmt.Errorf("invalid --value %q: %w", contractDeployValue, err)
 			}
-			// Convert ETH to wei.
-			weiF := new(big.Float).Mul(f, new(big.Float).SetInt(
-				new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-			valueBig, _ = weiF.Int(nil)
+			valueBig = parsed
 			pairs = append(pairs, [2]string{"Value", contractDeployValue + " ETH"})
 		}
 
@@ -1248,6 +1271,7 @@ func abiToStudioEntries(abi []contract.ABIEntry, decimals int) []ui.StudioEntry 
 			Selector:    e.Selector(),
 			Sig:         sig,
 			IsWrite:     e.IsWriteFunction(),
+			IsPayable:   e.StateMutability == "payable",
 			IsEvent:     e.Type == "event",
 			Inputs:      params,
 			OutputTypes: outTypes,

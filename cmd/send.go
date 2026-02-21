@@ -328,14 +328,49 @@ func resolveToAddress(s string, mgr *wallet.Manager) (string, error) {
 	return w.Address, nil
 }
 
+// ethToWei converts a human-readable ETH string (e.g. "0.001") to wei
+// using exact string-based decimal arithmetic — no floating-point loss.
 func ethToWei(ethStr string) (*big.Int, error) {
-	f, ok := new(big.Float).SetString(ethStr)
+	ethStr = strings.TrimSpace(ethStr)
+	if ethStr == "" {
+		return nil, fmt.Errorf("empty ETH value")
+	}
+
+	const decimals = 18
+
+	// Split on decimal point.
+	parts := strings.SplitN(ethStr, ".", 2)
+	wholePart := parts[0]
+	fracPart := ""
+	if len(parts) == 2 {
+		fracPart = parts[1]
+	}
+
+	// Validate whole part (allow leading minus for signed, but ETH values are typically non-negative).
+	if wholePart == "" || wholePart == "-" {
+		wholePart = "0"
+	}
+
+	// Truncate or pad fractional part to exactly 18 digits.
+	if len(fracPart) > decimals {
+		fracPart = fracPart[:decimals]
+	}
+	for len(fracPart) < decimals {
+		fracPart += "0"
+	}
+
+	// Combine: whole * 10^18 + frac
+	weiStr := wholePart + fracPart
+	// Strip leading zeros (but keep at least "0").
+	weiStr = strings.TrimLeft(weiStr, "0")
+	if weiStr == "" {
+		weiStr = "0"
+	}
+
+	wei, ok := new(big.Int).SetString(weiStr, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid ETH value: %s", ethStr)
 	}
-	weiPerETH := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-	weiFloat := new(big.Float).Mul(f, weiPerETH)
-	wei, _ := weiFloat.Int(nil)
 	return wei, nil
 }
 
