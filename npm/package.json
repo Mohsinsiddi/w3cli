@@ -1,0 +1,41 @@
+{
+  "name": "w3cli",
+  "version": "1.0.0",
+  "description": "The Web3 Power CLI — 26 chains, smart RPC, contract studio",
+  "bin": {
+    "w3cli": "./bin/w3cli.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": [
+    "web3",
+    "blockchain",
+    "cli",
+    "ethereum",
+    "solana",
+    "sui",
+    "evm",
+    "defi",
+    "smart-contracts"
+  ],
+  "author": "siddi_404",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mohsinsiddi/w3cli.git"
+  },
+  "homepage": "https://github.com/Mohsinsiddi/w3cli#readme",
+  "bugs": {
+    "url": "https://github.com/Mohsinsiddi/w3cli/issues"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "bin/",
+    "install.js",
+    "package.json",
+    "README.md"
+  ]
+}
