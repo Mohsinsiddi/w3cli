@@ -12,7 +12,7 @@ import (
 // Version is the current release. Overridable via build ldflags:
 //
 //	go build -ldflags "-X github.com/Mohsinsiddi/w3cli/cmd.Version=1.2.3" .
-var Version = "1.0.2"
+var Version = "1.0.4"
 
 var (
 	cfgDir  string
