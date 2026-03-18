@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Mohsinsiddi/w3cli/internal/config"
+	"github.com/Mohsinsiddi/w3cli/internal/update"
 	"github.com/spf13/cobra"
 )
 
@@ -56,8 +57,23 @@ for a single invocation. Without either flag the persisted mode is used
 
 // Execute runs the root command.
 func Execute() {
+	// Check for updates in background (non-blocking, cached 24h).
+	updateCh := make(chan string, 1)
+	go func() {
+		updateCh <- update.CheckForUpdate(Version)
+	}()
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
+	}
+
+	// Print update notification after command output.
+	select {
+	case latest := <-updateCh:
+		if latest != "" {
+			fmt.Fprint(os.Stderr, update.NotifyMessage(latest))
+		}
+	default:
 	}
 }
 

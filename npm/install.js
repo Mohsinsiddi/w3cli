@@ -94,10 +94,20 @@ async function install() {
     fs.mkdirSync(binDir, { recursive: true });
   }
 
-  // Skip download if binary already exists and is executable.
+  // Check if existing binary matches the expected version.
   if (fs.existsSync(dest)) {
-    console.log(`w3cli already installed at ${dest}`);
-    return;
+    try {
+      const installed = execSync(`"${dest}" --version`, { encoding: 'utf8' }).trim();
+      if (installed.includes(VERSION)) {
+        console.log(`w3cli v${VERSION} already installed at ${dest}`);
+        return;
+      }
+      console.log(`Updating w3cli: installed=${installed}, expected=v${VERSION}`);
+      fs.unlinkSync(dest);
+    } catch {
+      // Binary exists but can't run — re-download.
+      fs.unlinkSync(dest);
+    }
   }
 
   console.log(`Downloading w3cli v${VERSION} for ${process.platform}/${process.arch}...`);
