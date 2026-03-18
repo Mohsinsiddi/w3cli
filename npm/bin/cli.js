@@ -11,7 +11,7 @@ const binary = path.join(__dirname, `w3cli${ext}`);
 if (!fs.existsSync(binary)) {
   console.error(
     'w3cli binary not found. Try reinstalling:\n' +
-    '  npm install -g w3cli\n\n' +
+    '  npm install -g @siddi_404/w3cli\n\n' +
     'Or build from source:\n' +
     '  git clone https://github.com/Mohsinsiddi/w3cli.git\n' +
     '  cd w3cli && go build -o w3cli .\n'

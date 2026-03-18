@@ -12,6 +12,7 @@ coverage.html
 # npm binary downloads (downloaded at install time, not committed)
 npm/bin/w3cli
 npm/bin/w3cli.exe
+npm/bin/w3cli.js
 
 # npm publish artifacts (copied by release script, not committed)
 npm/README.md

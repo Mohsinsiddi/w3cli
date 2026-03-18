@@ -1,9 +1,9 @@
 {
   "name": "@siddi_404/w3cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The Web3 Power CLI — 26 chains, smart RPC, contract studio",
   "bin": {
-    "w3cli": "./bin/w3cli.js"
+    "w3cli": "bin/cli.js"
   },
   "scripts": {
     "postinstall": "node install.js"
