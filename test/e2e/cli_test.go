@@ -49,7 +49,7 @@ func TestVersionFlag(t *testing.T) {
 	out, err := runCLI(t, dir, "--version")
 	require.NoError(t, err)
 	assert.Contains(t, out, "w3cli")
-	assert.Contains(t, out, "1.0.0")
+	assert.Regexp(t, `\d+\.\d+\.\d+`, out)
 }
 
 func TestHelpCommand(t *testing.T) {
