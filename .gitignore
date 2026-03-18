@@ -13,6 +13,10 @@ coverage.html
 npm/bin/w3cli
 npm/bin/w3cli.exe
 
+# npm publish artifacts (copied by release script, not committed)
+npm/README.md
+npm/LICENSE
+
 # macOS
 .DS_Store
 

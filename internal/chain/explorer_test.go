@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -377,13 +378,13 @@ func TestFetchContractNamesEmptyInput(t *testing.T) {
 
 func TestFetchContractNamesPartialFailure(t *testing.T) {
 	// First address: success. Second: returns empty name (treated as unknown).
-	requestCount := 0
+	var requestCount atomic.Int32
 	addrs := []string{
 		"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		"0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
 	}
 	srv := explorerServer(t, func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
+		requestCount.Add(1)
 		if r.URL.Query().Get("address") == addrs[0] {
 			json.NewEncoder(w).Encode(contractSourceResponse{ //nolint:errcheck
 				Status: "1",
