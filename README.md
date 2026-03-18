@@ -1,6 +1,6 @@
 # w3cli
 
-[![npm version](https://img.shields.io/npm/v/w3cli.svg)](https://www.npmjs.com/package/w3cli)
+[![npm version](https://img.shields.io/npm/v/@siddi_404/w3cli.svg)](https://www.npmjs.com/package/@siddi_404/w3cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > The Web3 Power CLI -- 26 chains, Smart RPC, Contract Studio, Beautiful TUI
@@ -21,14 +21,14 @@ Check balances, send transactions, interact with smart contracts, deploy tokens,
 ## Install
 
 ```bash
-npm install -g w3cli
+npm install -g @siddi_404/w3cli
 ```
 
 Or with pnpm / yarn:
 
 ```bash
-pnpm add -g w3cli
-yarn global add w3cli
+pnpm add -g @siddi_404/w3cli
+yarn global add @siddi_404/w3cli
 ```
 
 ### Build from source
