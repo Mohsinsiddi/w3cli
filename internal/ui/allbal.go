@@ -275,14 +275,20 @@ func (m AllBalModel) viewSingle(spin string) string {
 	var totalUSD float64
 
 	for _, row := range m.Rows {
+		// Pick the correct fields based on mode.
+		status, balance, usd, latency, errMsg := row.MainStatus, row.MainBalance, row.MainUSD, row.MainLatency, row.MainErr
+		if m.Mode == "testnet" {
+			status, balance, usd, latency, errMsg = row.TestStatus, row.TestBalance, row.TestUSD, row.TestLatency, row.TestErr
+		}
+
 		balStr, usdStr, latStr, statStr := renderSingleRow(
-			row.MainStatus, row.MainBalance, row.MainUSD,
-			row.Currency, row.MainLatency, row.MainErr, spin,
+			status, balance, usd,
+			row.Currency, latency, errMsg, spin,
 		)
 
-		if row.MainStatus == ABStatusDone {
+		if status == ABStatusDone {
 			var u float64
-			fmt.Sscanf(strings.TrimPrefix(row.MainUSD, "$"), "%f", &u)
+			fmt.Sscanf(strings.TrimPrefix(usd, "$"), "%f", &u)
 			totalUSD += u
 		}
 
@@ -300,8 +306,12 @@ func (m AllBalModel) viewSingle(spin string) string {
 	// Count chains with a non-zero balance (regardless of whether USD resolved).
 	var nonZeroChains int
 	for _, row := range m.Rows {
-		if row.MainStatus == ABStatusDone {
-			if bal, _ := strconv.ParseFloat(row.MainBalance, 64); bal > 0 {
+		st, bl := row.MainStatus, row.MainBalance
+		if m.Mode == "testnet" {
+			st, bl = row.TestStatus, row.TestBalance
+		}
+		if st == ABStatusDone {
+			if bal, _ := strconv.ParseFloat(bl, 64); bal > 0 {
 				nonZeroChains++
 			}
 		}
