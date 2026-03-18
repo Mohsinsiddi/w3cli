@@ -1,5 +1,8 @@
 # w3cli
 
+[![npm version](https://img.shields.io/npm/v/w3cli.svg)](https://www.npmjs.com/package/w3cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > The Web3 Power CLI -- 26 chains, Smart RPC, Contract Studio, Beautiful TUI
 
 ```
@@ -17,10 +20,15 @@ Check balances, send transactions, interact with smart contracts, deploy tokens,
 
 ## Install
 
-### npm (recommended)
-
 ```bash
 npm install -g w3cli
+```
+
+Or with pnpm / yarn:
+
+```bash
+pnpm add -g w3cli
+yarn global add w3cli
 ```
 
 ### Build from source
@@ -115,6 +123,7 @@ Interactive TUI for reading and writing smart contract functions.
 w3cli contract add MyToken 0xADDR --abi ./abi.json  # Register with local ABI (raw or Hardhat/Foundry artifact)
 w3cli contract add MyToken 0xADDR --fetch            # Auto-fetch ABI from explorer
 w3cli contract add MyToken 0xADDR --builtin erc20    # Use bundled ABI
+w3cli contract import Token 0xADDR --abi ./artifacts/Token.json  # Import from Hardhat/Foundry artifact
 w3cli contract list                                   # List registered contracts
 w3cli contract remove MyToken                         # Remove a contract
 w3cli contract builtins                               # List bundled ABIs
@@ -123,7 +132,18 @@ w3cli contract studio MyToken                         # Interactive TUI
 
 The `--abi` flag accepts both **raw ABI JSON arrays** and **Hardhat/Foundry artifact files** (auto-detected). Invalid formats, empty ABIs, and non-ABI JSON objects are rejected with clear error messages.
 
-The studio auto-detects function types, shows parameter hints with examples, scales token amounts by decimals, and provides a full sign-preview-broadcast flow for write functions.
+The studio auto-detects function types, shows parameter hints with examples, scales token amounts by decimals, and provides a full sign-preview-broadcast flow for write functions. **Payable functions** are tagged with `Ξ payable` and prompt for an ETH value before broadcasting.
+
+### Contract Deploy
+
+Deploy compiled contracts directly from Hardhat or Foundry artifacts.
+
+```bash
+w3cli contract deploy Token ./artifacts/Token.sol/Token.json --args "MyToken,MTK,18,1000000" --network ethereum
+w3cli contract deploy Vault ./artifacts/Vault.sol/Vault.json --args "0xTokenAddr" --value 0.5 --network base
+```
+
+Deployed contracts are **auto-registered** in contract studio -- use `w3cli contract studio <name>` immediately after deploy.
 
 ### Allowance & Approve
 
@@ -347,7 +367,19 @@ Override with `--config <dir>` or `CHAIN_CONFIG_DIR` env var.
 go test ./...
 
 # Run with race detector
-go test ./... -race
+go test -race ./...
+
+# Run specific test suites
+go test ./cmd/ -run TestEthToWei -v                  # ETH→wei precision tests
+go test ./cmd/ -run TestAbiToStudioEntries -v         # Studio payable detection tests
+go test ./cmd/ -run TestContractDeploy -v             # Deploy command tests
+go test ./cmd/ -run TestValidateABIInput -v           # ABI input validation tests
+go test ./cmd/ -run TestScaleTokenInput -v            # Token amount scaling tests
+go test ./internal/ui/ -run TestStudioView -v         # Studio TUI rendering tests
+go test ./internal/contract/ -v                       # Registry, caller, fetcher tests
+go test ./internal/wallet/ -v                         # Wallet + keystore tests
+go test ./internal/chain/ -v                          # Chain registry + EVM client tests
+go test ./test/e2e/ -v                                # End-to-end CLI tests
 
 # Build
 go build -o w3cli .

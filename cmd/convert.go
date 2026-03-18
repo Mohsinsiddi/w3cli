@@ -59,23 +59,26 @@ Examples:
 }
 
 func convertFromETH(amountStr string) error {
-	f, ok := new(big.Float).SetString(amountStr)
-	if !ok {
+	wei, err := ethToWei(amountStr)
+	if err != nil {
 		return fmt.Errorf("invalid amount: %s", amountStr)
 	}
 
-	weiPerETH := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-	gweiPerETH := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil))
+	// Derive gwei from wei (exact integer division).
+	weiPerGwei := new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)
+	gweiWhole := new(big.Int).Div(wei, weiPerGwei)
+	gweiRem := new(big.Int).Mod(wei, weiPerGwei)
 
-	weiF := new(big.Float).Mul(f, weiPerETH)
-	gweiF := new(big.Float).Mul(f, gweiPerETH)
-
-	wei, _ := weiF.Int(nil)
-	gwei := gweiF.Text('f', 0)
+	gweiStr := gweiWhole.String()
+	if gweiRem.Sign() > 0 {
+		frac := fmt.Sprintf("%09d", gweiRem.Uint64())
+		frac = strings.TrimRight(frac, "0")
+		gweiStr += "." + frac
+	}
 
 	fmt.Println(ui.KeyValueBlock("Unit Conversion", [][2]string{
 		{"Input", ui.Val(amountStr + " ETH")},
-		{"Gwei", ui.Val(gwei + " gwei")},
+		{"Gwei", ui.Val(gweiStr + " gwei")},
 		{"Wei", ui.Val(wei.String() + " wei")},
 		{"Hex", ui.Val("0x" + wei.Text(16))},
 	}))
@@ -83,18 +86,34 @@ func convertFromETH(amountStr string) error {
 }
 
 func convertFromGwei(amountStr string) error {
-	f, ok := new(big.Float).SetString(amountStr)
+	// Use string-based scaling: gwei → wei is ×10^9.
+	parts := strings.SplitN(strings.TrimSpace(amountStr), ".", 2)
+	wholePart := parts[0]
+	fracPart := ""
+	if len(parts) == 2 {
+		fracPart = parts[1]
+	}
+	if wholePart == "" {
+		wholePart = "0"
+	}
+	if len(fracPart) > 9 {
+		fracPart = fracPart[:9]
+	}
+	for len(fracPart) < 9 {
+		fracPart += "0"
+	}
+	weiStr := strings.TrimLeft(wholePart+fracPart, "0")
+	if weiStr == "" {
+		weiStr = "0"
+	}
+	wei, ok := new(big.Int).SetString(weiStr, 10)
 	if !ok {
 		return fmt.Errorf("invalid amount: %s", amountStr)
 	}
 
-	gweiPerETH := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil))
-	weiPerGwei := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil))
-
-	ethF := new(big.Float).Quo(f, gweiPerETH)
-	weiF := new(big.Float).Mul(f, weiPerGwei)
-
-	wei, _ := weiF.Int(nil)
+	// Derive ETH from wei (exact).
+	weiPerETH := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	ethF := new(big.Float).Quo(new(big.Float).SetInt(wei), new(big.Float).SetInt(weiPerETH))
 
 	fmt.Println(ui.KeyValueBlock("Unit Conversion", [][2]string{
 		{"Input", ui.Val(amountStr + " gwei")},

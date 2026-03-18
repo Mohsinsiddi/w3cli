@@ -58,6 +58,10 @@ gh release create "${TAG}" \
 echo "==> GitHub release created: https://github.com/Mohsinsiddi/w3cli/releases/tag/${TAG}"
 
 # ── 5. Update npm package version and publish ───────────────────────────────
+echo "==> Copying README and LICENSE into npm package..."
+cp "${ROOT_DIR}/README.md" "${NPM_DIR}/README.md"
+cp "${ROOT_DIR}/LICENSE" "${NPM_DIR}/LICENSE"
+
 echo "==> Updating npm package version to ${VERSION}..."
 cd "${NPM_DIR}"
 
