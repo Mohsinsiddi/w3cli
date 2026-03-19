@@ -20,10 +20,22 @@ func SignMessage(w *Wallet, ks KeystoreBackend, message []byte) ([]byte, error) 
 		return nil, fmt.Errorf("retrieving key: %w", err)
 	}
 
+	// Security Hardening: Clear string reference from memory when done
+	defer func() {
+		hexKey = ""
+	}()
+
 	privKey, err := crypto.HexToECDSA(stripHexPrefix(hexKey))
 	if err != nil {
 		return nil, fmt.Errorf("parsing private key: %w", err)
 	}
+
+	// Security Hardening: Zero out the ECDSA private key scalar to prevent memory leaks
+	defer func() {
+		if privKey != nil && privKey.D != nil {
+			privKey.D.SetInt64(0)
+		}
+	}()
 
 	hash := eip191Hash(message)
 	sig, err := crypto.Sign(hash, privKey)
